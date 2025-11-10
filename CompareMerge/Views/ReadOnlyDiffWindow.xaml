@@ -1,0 +1,93 @@
+﻿<Window x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:InnoPVManagementSystem.Modules.CompareMerge.Views"
+        Title="파일 비교 (읽기 전용)" Width="1200" Height="800">
+    <v:ReadOnlyDiffView x:Name="DiffView"/>
+</Window>
+
+<!--<Window x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit"
+        Title="읽기 전용 비교" Height="800" Width="1200"
+        WindowStartupLocation="CenterOwner"
+        Loaded="OnLoaded">
+    <Grid>
+        <Grid.RowDefinitions>
+            --><!-- 상단 경고/안내 배너 --><!--
+            <RowDefinition Height="Auto"/>
+            --><!-- 본문 --><!--
+            <RowDefinition Height="*"/>
+            --><!-- 하단 상태바(선택) --><!--
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        --><!-- 안내 배너 --><!--
+        <Border x:Name="InfoBanner"
+                Grid.Row="0"
+                Background="#FFFBE6"
+                BorderBrush="#FFE0A0"
+                BorderThickness="0,0,0,1"
+                Padding="10"
+                Visibility="Collapsed">
+            <DockPanel LastChildFill="False">
+                <TextBlock x:Name="InfoText"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Margin="0,0,10,0"/>
+                <Button x:Name="btnLoadAll"
+                        Content="전체 로드"
+                        Click="OnClickLoadAll"
+                        Visibility="Collapsed"
+                        Padding="10,4"
+                        DockPanel.Dock="Right"/>
+            </DockPanel>
+        </Border>
+
+        --><!-- 본문: 좌/우 텍스트 --><!--
+        <Grid Grid.Row="1" Margin="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0">
+                <TextBlock Text="{Binding LeftFileName}" FontWeight="Bold" Margin="0,0,0,6"/>
+                <ae:TextEditor x:Name="LeftEditor"
+                               DockPanel.Dock="Bottom"
+                               IsReadOnly="True"
+                               ShowLineNumbers="True"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               VerticalScrollBarVisibility="Auto"
+                               HorizontalScrollBarVisibility="Auto"
+                               SyntaxHighlighting="XML"/>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Width="6"/>
+
+            <DockPanel Grid.Column="2">
+                <TextBlock Text="{Binding RightFileName}" FontWeight="Bold" Margin="0,0,0,6"/>
+                <ae:TextEditor x:Name="RightEditor"
+                               DockPanel.Dock="Bottom"
+                               IsReadOnly="True"
+                               ShowLineNumbers="True"
+                               FontFamily="Consolas"
+                               FontSize="13"
+                               VerticalScrollBarVisibility="Auto"
+                               HorizontalScrollBarVisibility="Auto"
+                               SyntaxHighlighting="XML"/>
+            </DockPanel>
+        </Grid>
+
+        --><!-- 상태바 --><!--
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock x:Name="txtStatus" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>-->
+
