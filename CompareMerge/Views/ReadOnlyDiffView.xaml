@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffView"
+﻿<!--<UserControl x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit">
@@ -8,7 +8,7 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- 상단: 3열 레이아웃 (좌: 파일/비교, 중: 상태+배지, 우: 변경 내비게이션) -->
+        --><!-- 상단: 3열 레이아웃 (좌: 파일/비교, 중: 상태+배지, 우: 변경 내비게이션) --><!--
         <Grid Margin="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -16,20 +16,20 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
 
-            <!-- 좌측: 파일 선택 + 비교 -->
+            --><!-- 좌측: 파일 선택 + 비교 -->
             <!--<StackPanel Orientation="Horizontal" Grid.Column="0">
                 <Button Content="좌 파일..." Margin="0,0,6,0" Click="OnPickLeft"/>
                 <Button Content="우 파일..." Margin="0,0,12,0" Click="OnPickRight"/>
                 <Button Content="비교" Click="OnCompare" />
             </StackPanel>-->
 
-            <!-- 가운데: 카운트 배지 + 상태 텍스트 -->
+            <!-- 가운데: 카운트 배지 + 상태 텍스트 --><!--
             <StackPanel Grid.Column="1"
                         Orientation="Horizontal"
                         VerticalAlignment="Center"
                         Margin="12,0"
                         >
-                <!-- 추가 -->
+                --><!-- 추가 --><!--
                 <Border Background="#E6E8F8" BorderBrush="#9AA0FF" BorderThickness="1"
                         CornerRadius="6" Padding="6,2" Margin="0,0,6,0">
                     <StackPanel Orientation="Horizontal">
@@ -39,7 +39,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 삭제 -->
+                --><!-- 삭제 --><!--
                 <Border Background="#FDE7E9" BorderBrush="#F28B94" BorderThickness="1"
                         CornerRadius="6" Padding="6,2" Margin="0,0,6,0">
                     <StackPanel Orientation="Horizontal">
@@ -49,7 +49,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 수정 -->
+                --><!-- 수정 --><!--
                 <Border Background="#FFF7DF" BorderBrush="#FFCC66" BorderThickness="1"
                         CornerRadius="6" Padding="6,2" Margin="0,0,12,0">
                     <StackPanel Orientation="Horizontal">
@@ -59,20 +59,20 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 상태 텍스트 -->
+                --><!-- 상태 텍스트 -->
                 <!--<TextBlock Text="{Binding StatusText, RelativeSource={RelativeSource AncestorType=UserControl}}"
                            VerticalAlignment="Center"
-                           TextTrimming="CharacterEllipsis"/>-->
+                           TextTrimming="CharacterEllipsis"/>--><!--
             </StackPanel>
 
-            <!-- 우측: 변경 내비게이션 -->
+            --><!-- 우측: 변경 내비게이션 --><!--
             <StackPanel Orientation="Horizontal" Grid.Column="2" HorizontalAlignment="Right">
                 <Button Content="⏮" Margin="0,0,6,0" Click="OnPrevChange"/>
                 <Button Content="⏭" Click="OnNextChange"/>
             </StackPanel>
         </Grid>
 
-        <!-- 본문: 좌/우 읽기 전용 편집기 -->
+        --><!-- 본문: 좌/우 읽기 전용 편집기 --><!--
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition/>
@@ -80,7 +80,7 @@
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
 
-            <!-- 좌 -->
+            --><!-- 좌 --><!--
             <Border Margin="8" BorderBrush="#DDD" BorderThickness="1">
                 <ae:TextEditor x:Name="LeftEditor"
                                IsReadOnly="True"
@@ -93,7 +93,7 @@
 
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="#EEE"/>
 
-            <!-- 우 -->
+            --><!-- 우 --><!--
             <Border Grid.Column="2" Margin="8" BorderBrush="#DDD" BorderThickness="1">
                 <ae:TextEditor x:Name="RightEditor"
                                IsReadOnly="True"
@@ -103,6 +103,59 @@
                                HorizontalScrollBarVisibility="Auto"
                                VerticalScrollBarVisibility="Auto"/>
             </Border>
+        </Grid>
+    </Grid>
+</UserControl>-->
+    
+    
+<UserControl x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 상단: 좌/우 파일명 + 상태 + 변경 네비 -->
+        <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" Text="{Binding Status}" VerticalAlignment="Center"/>
+
+            <StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Right" >
+                <Button Content="⏮" Margin="0,0,6,0" Click="OnPrevChange" />
+                <Button Content="⏭" Click="OnNextChange" />
+            </StackPanel>
+        </Grid>
+
+        <!-- 본문: 좌/우 에디터 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ae:TextEditor x:Name="LeftEditor"
+                           Grid.Column="0"
+                           FontFamily="Consolas"
+                           FontSize="13"
+                           IsReadOnly="True"
+                           ShowLineNumbers="True" />
+
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" />
+
+            <ae:TextEditor x:Name="RightEditor"
+                           Grid.Column="2"
+                           FontFamily="Consolas"
+                           FontSize="13"
+                           IsReadOnly="True"
+                           ShowLineNumbers="True" />
         </Grid>
     </Grid>
 </UserControl>
