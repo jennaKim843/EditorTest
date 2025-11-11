@@ -1,0 +1,104 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2025-11-11",
+  "files": {
+    "T_BaseSpec.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "T_BenefitSpec.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "T_LoadingSpec.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "T_RenewalMapping.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+
+    "I_BaseSpec.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "I_BenefitSpec.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "I_LoadingSpec.io": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "I_GteeSpec.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+
+    "V_BaseSpec.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "V_BenefitSpec.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "V_LoadingSpec.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "V_GteeSpec.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "V_StepUpLvSet.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code" ]
+    },
+
+    "ExpectedLapseSet.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "LoyaltyMaintBonusSet.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code7", "base_prd_code", "valid_date" ]
+    },
+    "RiskRateAdj.io": {
+      "delimiter": "",
+      "keyColumns": [ "adjust_code_dummy" ]
+    },
+    "RiskRateSelect.io": {
+      "delimiter": "",
+      "keyColumns": [ "risk_code_dummy", "entry_age" ]
+    },
+    "RiskRateUltimate.io": {
+      "delimiter": "",
+      "keyColumns": [ "risk_code_dummy" ]
+    },
+
+    "PV_MAPPING_CODE.io": {
+      "delimiter": "",
+      "keyColumns": [ "base_prd_code_pv", "rider_prd_code_pv", "expiration_date" ]
+    },
+
+    "PV_PROD_INFO_ALL.csv": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "PV_MY_PROD_INFO.csv": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+    "PV_RENEW_RISKRATE_CD_LIST.csv": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    },
+
+    "PV_RISK_RATE_SPEC.csv": {
+      "delimiter": "|",
+      "keyColumns": [ "base_prd_code", "rider_prd_code_pv", "valid_date" ]
+    }
+  }
+}
