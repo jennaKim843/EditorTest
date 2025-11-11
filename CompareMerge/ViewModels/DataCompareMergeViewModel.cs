@@ -9,6 +9,7 @@ using InnoPVManagementSystem.Common.ViewModels.Base;
 using InnoPVManagementSystem.Common.Services;
 using InnoPVManagementSystem.Modules.CompareMerge.Views;
 using System.Text;
+using static InnoPVManagementSystem.Common.Constants.CodeConstants;
 
 namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 {
@@ -446,6 +447,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 
             if (dialog.ShowDialog() == true)
             {
+                StandardFolderList.Clear();
+                TargetFolderList.Clear();
+
                 var selectedPath = Path.GetDirectoryName(dialog.FileName);
                 if (string.IsNullOrEmpty(selectedPath))
                     return;
@@ -666,6 +670,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 
                 var left = "C:\\Users\\admin\\source\\repos\\dosa510\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL.csv";
                 var right = "C:\\Users\\admin\\source\\repos\\dosa510\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL_back.csv";
+                //var left = "C:\\Users\\user\\Desktop\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL.csv";
+                //var right = "C:\\Users\\user\\Desktop\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL_back.csv";
 
 
                 //if (string.IsNullOrWhiteSpace(left) || !File.Exists(left))
@@ -701,6 +707,46 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         {
             // TODO: 전체 적용
         }
+
+        public ICommand RowActionCommand => new RelayCommand<DiffGridItem>(
+            async row =>
+            {
+                if (row == null)
+                {
+                    MessageBox.Show("선택된 행이 없습니다.", "파일 비교", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var leftFilePath = row.File1Path;
+                var rightFilePath = row.File2Path;
+
+                if (string.IsNullOrWhiteSpace(leftFilePath) ||
+                    string.IsNullOrWhiteSpace(rightFilePath))
+                {
+                    MessageBox.Show("좌/우 파일 경로가 올바르지 않습니다.", "파일 비교", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!File.Exists(leftFilePath) || !File.Exists(rightFilePath))
+                {
+                    MessageBox.Show("좌/우 파일이 모두 존재해야 합니다.", "파일 비교", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 읽기 전용 Diff 창 띄우기
+                var win = new ReadOnlyDiffWindow(leftFilePath, rightFilePath)
+                {
+                    Owner = Application.Current?.MainWindow,
+                    WindowStartupLocation = WindowStartupLocation.CenterOwner
+                };
+                win.ShowDialog();
+            },
+            // CanExecute
+            row => row != null
+        );
+
+
+
 
 
 
