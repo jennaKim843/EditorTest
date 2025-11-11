@@ -83,10 +83,10 @@
             <!-- 좌 -->
             <Border Margin="8" BorderBrush="#DDD" BorderThickness="1">
                 <ae:TextEditor x:Name="LeftEditor"
-                               IsReadOnly="True"
-                               FontFamily="Cascadia Code, Consolas, Menlo, monospace"
+                               FontFamily="Consolas"
                                FontSize="13"
-                               ShowLineNumbers="False"
+                               ShowLineNumbers="True"
+                               IsReadOnly="True"
                                HorizontalScrollBarVisibility="Auto"
                                VerticalScrollBarVisibility="Auto"/>
             </Border>
@@ -96,12 +96,12 @@
             <!-- 우 -->
             <Border Grid.Column="2" Margin="8" BorderBrush="#DDD" BorderThickness="1">
                 <ae:TextEditor x:Name="RightEditor"
-                               IsReadOnly="True"
-                               FontFamily="Cascadia Code, Consolas, Menlo, monospace"
+                               FontFamily="Consolas"
                                FontSize="13"
-                               ShowLineNumbers="False"
+                               ShowLineNumbers="True"
+                               IsReadOnly="True"
                                HorizontalScrollBarVisibility="Auto"
-                               VerticalScrollBarVisibility="Auto"/>
+                               VerticalScrollBarVisibility="Auto" />
             </Border>
         </Grid>
     </Grid>

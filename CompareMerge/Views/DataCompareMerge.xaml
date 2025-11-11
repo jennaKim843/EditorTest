@@ -21,7 +21,6 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="40"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- 조회조건 영역 -->
@@ -106,8 +105,18 @@
                 <DataGrid Style="{StaticResource DefaultDataGridStyle}"
                           ItemsSource="{Binding GridItems}"
                           AutoGenerateColumns="False"
+                          SelectionMode="Single"
+                          CanUserAddRows="False"
                           IsReadOnly="True"
                           Margin="10">
+                    
+                    <!-- 더블클릭 이벤트 연결 -->
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick"/>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="순번"     Binding="{Binding No}"           Width="60"  IsReadOnly="True"/>
                         <DataGridTextColumn Header="파일명"   Binding="{Binding FileName}"     Width="*"   IsReadOnly="True"/>

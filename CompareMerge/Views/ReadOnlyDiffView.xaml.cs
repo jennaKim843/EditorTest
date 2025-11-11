@@ -170,7 +170,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 
         #region Orchestrator
 
-        private void RunCompare()
+        public void RunCompare()
         {
             var leftRaw = LeftEditor.Text ?? string.Empty;
             var rightRaw = RightEditor.Text ?? string.Empty;

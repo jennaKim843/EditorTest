@@ -1,5 +1,6 @@
 ﻿using InnoPVManagementSystem.Modules.CompareMerge.ViewModels;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 {
@@ -26,6 +27,21 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             //this.DataContextChanged += OnDataContextChanged;
             //this.Loaded += OnLoaded;
             //this.Unloaded += OnUnloaded;
+        }
+
+        private void OnRowDoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not DataGridRow row) return;
+
+            var item = row.DataContext; // 현재 행의 바운드 객체
+            if (item == null) return;
+
+            if (DataContext is DataCompareMergeViewModel vm)
+            {
+                var cmd = vm.RowActionCommand;
+                if (cmd != null && cmd.CanExecute(item))
+                    cmd.Execute(item);
+            }
         }
 
         ///// <summary>
