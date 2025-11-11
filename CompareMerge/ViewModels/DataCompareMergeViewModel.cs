@@ -664,10 +664,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                 //var left = SelectedItem.File1Path;
                 //var right = SelectedItem.File2Path;
 
-                //var left = "C:\\Users\\admin\\source\\repos\\dosa510\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL.csv";
-                //var right = "C:\\Users\\admin\\source\\repos\\dosa510\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL_back.csv";
-                var left = "C:\\Users\\user\\Desktop\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL.csv";
-                var right = "C:\\Users\\user\\Desktop\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL_back.csv";
+                var left = "C:\\Users\\admin\\source\\repos\\dosa510\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL.csv";
+                var right = "C:\\Users\\admin\\source\\repos\\dosa510\\InnoPVManagementSystem\\PV_input\\PV_PROD_INFO_ALL_back.csv";
 
 
                 //if (string.IsNullOrWhiteSpace(left) || !File.Exists(left))
