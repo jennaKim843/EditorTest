@@ -3,13 +3,15 @@ using System.Data;
 using System.Windows;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System;
+using System.Text;
 using InnoPVManagementSystem.Common.Constants;
 using InnoPVManagementSystem.Common.Foundation;
 using InnoPVManagementSystem.Common.ViewModels.Base;
 using InnoPVManagementSystem.Common.Services;
 using InnoPVManagementSystem.Modules.CompareMerge.Views;
-using System.Text;
 using static InnoPVManagementSystem.Common.Constants.CodeConstants;
+
 
 namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 {
@@ -38,6 +40,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             // 실제 비교에 사용할 좌/우 전체 경로
             public string? File1Path { get; set; }   // 기준(폴더1) 파일 풀경로
             public string? File2Path { get; set; }   // 비교(폴더2) 파일 풀경로
+
+            public string Message { get; set; } = "";    // 메세지
         }
 
         private DiffGridItem? _selectedItem;
@@ -288,10 +292,10 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 
             /// 커맨드 초기화(Busy 상태에 따라 실행 가능 여부 제어) //TODO 수정
             SelectFolderCommand = new RelayCommand(SelectFolder, () => !IsBusy);
-            CompareCommand = new RelayCommand(CompareFile, () => !IsBusy);
             InitCommand = new RelayCommand(Init, () => !IsBusy);
             ApplyCommand = new RelayCommand(ApplySelected, () => !IsBusy);
             ApplyAllCommand = new RelayCommand(ApplyAll, () => !IsBusy);
+            CompareCommand = new RelayCommand(async () => await CompareFile(), () => !IsBusy);
 
             //InitCommand = new RelayCommand(async () => await CompareFile(),
             //                                 () => !IsBusy && !IsModifying);
@@ -500,136 +504,256 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 
         }
 
-        /// <summary>
-        /// CSV/IO 로드 → 비교 → Table = 결과 DataTable
-        /// </summary>
-        private async void CompareFile()
+        public async Task CompareFile()
         {
-            if (IsComparing)
+            // 0) 폴더 검증
+            if (string.IsNullOrWhiteSpace(SelectedStandardFolder) ||
+                string.IsNullOrWhiteSpace(SelectedTargetFolder))
             {
-                // 중복 실행 시, 잠깐 오버레이로 안내만 보여주고 종료
-                IsProgressVisible = true;
-                ProgressMessage = "이전 비교 작업이 아직 진행 중입니다...";
-                ProgressValue = 50;
-                await Task.Delay(1000);
-                IsProgressVisible = false;
+                MessageBox.Show("기준/비교 폴더를 먼저 선택하세요.", "안내",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (!Directory.Exists(SelectedStandardFolder) || !Directory.Exists(SelectedTargetFolder))
+            {
+                MessageBox.Show("선택한 폴더 경로가 존재하지 않습니다.", "오류",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
 
+            IsBusy = true;
+            IsProgressVisible = true;
+            ProgressValue = 0;
+            ProgressMessage = "파일 목록을 스캔하는 중...";
+
+            GridItems.Clear();
+
             try
             {
-                IsComparing = true;
-                IsProgressVisible = true;
-                ProgressValue = 0;
-                ProgressMessage = "비교 준비 중...";
+                var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".csv", ".io" };
 
-                _cts = new CancellationTokenSource();
+                // 1) 좌/우 파일 스캔
+                var leftFiles = Directory.EnumerateFiles(SelectedStandardFolder, "*.*", SearchOption.TopDirectoryOnly)
+                                         .Where(p => allowed.Contains(Path.GetExtension(p)));
+                var rightFiles = Directory.EnumerateFiles(SelectedTargetFolder, "*.*", SearchOption.TopDirectoryOnly)
+                                          .Where(p => allowed.Contains(Path.GetExtension(p)));
 
-                var diff = new DiffService(); // DI 없이 바로 사용
-                var options = new DiffOptions
+                // 2) 파일명 기준 맵
+                var leftMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var rightMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var p in leftFiles) leftMap[Path.GetFileName(p)] = p;
+                foreach (var p in rightFiles) rightMap[Path.GetFileName(p)] = p;
+
+                // 3) 합집합
+                var allNames = new SortedSet<string>(leftMap.Keys, StringComparer.OrdinalIgnoreCase);
+                foreach (var n in rightMap.Keys) allNames.Add(n);
+
+                int total = allNames.Count;
+                int done = 0;
+
+                // 누적 통계
+                int totalFileAdded = 0;
+                int totalFileDeleted = 0;
+                int totalRowAdded = 0;
+                int totalRowDeleted = 0;
+                int totalRowModified = 0;
+
+                var changedFiles = new List<string>();
+                var failedFiles = new List<string>();
+
+                ProgressMessage = $"총 {total}개 파일 비교 시작";
+
+                // 4) 파일별 비교
+                foreach (var name in allNames)
                 {
-                    FilePattern = "*.csv; *.io",                     // 필요 시 *.txt;*.csv
-                    IncludeSubfolders = true,
-                    LiteralText = string.IsNullOrWhiteSpace(LiteralText) ? null : LiteralText,
-                    OptimizeThresholdUniqueLines = 1_000_000
-                };
+                    var leftPath = leftMap.TryGetValue(name, out var lp) ? lp : null;
+                    var rightPath = rightMap.TryGetValue(name, out var rp) ? rp : null;
 
-                // 폴더-폴더 비교의 경우: 진행률 전달
-                var progress = new VmProgress(this);
-                var summary = await diff.CompareFolderToFolderAsync(
-                    SelectedStandardFolder, SelectedTargetFolder, options, progress, _cts.Token);
+                    var item = new DiffGridItem
+                    {
+                        FileName = name,
+                        File1Path = leftPath ?? "",
+                        File2Path = rightPath ?? "",
+                        AddedCount = 0,
+                        DeletedCount = 0,
+                        ModifiedCount = 0,
+                        Message = ""
+                    };
 
-                // 혹은 “그리드(파일명|추가|삭제|수정)”을 바로 만들고 싶다면:
-                await BuildGridFromFoldersAsync(
-                    SelectedStandardFolder,
-                    SelectedTargetFolder,
-                    options,
-                    keyColumnIndex: 0,
-                    ct: _cts.Token);
+                    if (leftPath != null && rightPath != null)
+                    {
+                        try
+                        {
+                            // 키컬럼 기반 비교 (백그라운드)
+                            var diff = await Task.Run(() => DiffService.CompareByFileKeys(leftPath, rightPath));
 
-                // DataTable 바인딩까지 쓰는 경우
-                //Table = ConvertToDataTable(GridItems);
+                            item.AddedCount = diff.Added;
+                            item.DeletedCount = diff.Deleted;
+                            item.ModifiedCount = diff.Modified;
 
-                ProgressMessage = $"비교 완료: {GridItems.Count}개 파일";
-                ProgressValue = 100;
-            }
-            catch (OperationCanceledException)
-            {
-                ProgressMessage = "작업이 취소되었습니다.";
+                            totalRowAdded += diff.Added;
+                            totalRowDeleted += diff.Deleted;
+                            totalRowModified += diff.Modified;
+
+                            if ((diff.Added + diff.Deleted + diff.Modified) == 0)
+                                item.Message = "동일";
+                            else
+                            {
+                                item.Message = $"변경됨 (+{diff.Added} / -{diff.Deleted} / ⋯{diff.Modified})";
+                                changedFiles.Add(name);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            item.Message = $"비교 실패: {ex.Message}";
+                            failedFiles.Add(name);
+                        }
+                    }
+                    else if (leftPath != null)
+                    {
+                        // 파일 자체 삭제
+                        item.DeletedCount = 1;
+                        item.Message = "삭제(비교 폴더에 없음)";
+                        totalFileDeleted++;
+                        changedFiles.Add(name);
+                    }
+                    else
+                    {
+                        // 파일 자체 추가
+                        item.AddedCount = 1;
+                        item.Message = "추가(비교 폴더에만 있음)";
+                        totalFileAdded++;
+                        changedFiles.Add(name);
+                    }
+
+                    GridItems.Add(item);
+
+                    // ========= 진행률 =========
+                    done++;
+                    ProgressValue = (int)(done * 100.0 / Math.Max(1, total));
+                    ProgressMessage = $"{done} / {total} 파일 처리 중...";
+                }
+
+                IsProgressVisible = false;
+
+                // 5) MessageBox로 완료 요약
+                var sb = new StringBuilder();
+                sb.AppendLine($"총 {total}개 파일 비교 완료");
+                //sb.AppendLine();
+                //sb.AppendLine($"파일 추가: {totalFileAdded}");
+                //sb.AppendLine($"파일 삭제: {totalFileDeleted}");
+                //sb.AppendLine($"행 추가:   {totalRowAdded}");
+                //sb.AppendLine($"행 삭제:   {totalRowDeleted}");
+                //sb.AppendLine($"행 수정:   {totalRowModified}");
+
+                if (changedFiles.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("[변경된 파일]");
+                    foreach (var x in changedFiles.Take(10))
+                        sb.AppendLine(" - " + x);
+                    if (changedFiles.Count > 10)
+                        sb.AppendLine($"…외 {changedFiles.Count - 10}건");
+                }
+
+                if (failedFiles.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("[비교 실패 파일]");
+                    foreach (var x in failedFiles.Take(10))
+                        sb.AppendLine(" - " + x);
+                    if (failedFiles.Count > 10)
+                        sb.AppendLine($"…외 {failedFiles.Count - 10}건");
+                }
+
+                MessageBox.Show(sb.ToString(), "비교 완료", MessageBoxButton.OK,
+                    failedFiles.Count > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                ProgressMessage = $"오류: {ex.Message}";
-                MessageBox.Show(ProgressMessage, "비교 실패", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"비교 중 오류가 발생했습니다.\n\n{ex.Message}", "오류",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {
-                IsComparing = false;
-                // 약간의 지연 후 오버레이 닫기(완료 UX)
-                await Task.Delay(300);
+                IsBusy = false;
                 IsProgressVisible = false;
-                _cts?.Dispose();
-                _cts = null;
+                ProgressMessage = "";
             }
         }
 
+
+        ///// <summary>
+        ///// CSV/IO 로드 → 비교 → Table = 결과 DataTable
+        ///// </summary>
         //private async void CompareFile()
         //{
+        //    if (IsComparing)
+        //    {
+        //        // 중복 실행 시, 잠깐 오버레이로 안내만 보여주고 종료
+        //        IsProgressVisible = true;
+        //        ProgressMessage = "이전 비교 작업이 아직 진행 중입니다...";
+        //        ProgressValue = 50;
+        //        await Task.Delay(1000);
+        //        IsProgressVisible = false;
+        //        return;
+        //    }
+
         //    try
         //    {
-        //        // 1️ 비교 중복 방지
-        //        if (IsComparing)
-        //        {
-        //            //MessageBox.Show("비교가 이미 진행 중입니다.");
-        //            //return;
-        //        }
-
-        //        // 2️ 폴더 유효성 체크
-        //        if (string.IsNullOrWhiteSpace(SelectedStandardFolder) || string.IsNullOrWhiteSpace(SelectedTargetFolder))
-        //        {
-        //            MessageBox.Show("두 폴더 경로를 모두 지정해 주세요.");
-        //            return;
-        //        }
-
-        //        // 3️ 상태 초기화
         //        IsComparing = true;
-        //        ProgressMessage = "비교 준비 중...";
+        //        IsProgressVisible = true;
         //        ProgressValue = 0;
-        //        GridItems.Clear();
+        //        ProgressMessage = "비교 준비 중...";
 
-        //        // 4️ DiffOptions 생성
-        //        var literal = string.IsNullOrWhiteSpace(this.LiteralText) ? null : this.LiteralText;
+        //        _cts = new CancellationTokenSource();
 
-        //        var opt = new DiffOptions
+        //        var diff = new DiffService(); // DI 없이 바로 사용
+        //        var options = new DiffOptions
         //        {
-        //            FilePattern = "*.csv",
+        //            FilePattern = "*.csv; *.io",                     // 필요 시 *.txt;*.csv
         //            IncludeSubfolders = true,
-        //            LiteralText = literal,
+        //            LiteralText = string.IsNullOrWhiteSpace(LiteralText) ? null : LiteralText,
         //            OptimizeThresholdUniqueLines = 1_000_000
         //        };
 
-        //        // 5️ 실제 비교 수행 (폴더1↔폴더2)
+        //        // 폴더-폴더 비교의 경우: 진행률 전달
+        //        var progress = new VmProgress(this);
+        //        var summary = await diff.CompareFolderToFolderAsync(
+        //            SelectedStandardFolder, SelectedTargetFolder, options, progress, _cts.Token);
+
+        //        // 혹은 “그리드(파일명|추가|삭제|수정)”을 바로 만들고 싶다면:
         //        await BuildGridFromFoldersAsync(
         //            SelectedStandardFolder,
         //            SelectedTargetFolder,
-        //            opt,
+        //            options,
         //            keyColumnIndex: 0,
-        //            ct: CancellationToken.None
-        //        );
+        //            ct: _cts.Token);
 
-        //        // 6️ DataGrid 바인딩용 DataTable 구성 (선택)
-        //        Table = ConvertToDataTable(GridItems);
+        //        // DataTable 바인딩까지 쓰는 경우
+        //        //Table = ConvertToDataTable(GridItems);
 
-        //        ProgressMessage = $"비교 완료 ({GridItems.Count}개 파일)";
+        //        ProgressMessage = $"비교 완료: {GridItems.Count}개 파일";
+        //        ProgressValue = 100;
+        //    }
+        //    catch (OperationCanceledException)
+        //    {
+        //        ProgressMessage = "작업이 취소되었습니다.";
         //    }
         //    catch (Exception ex)
         //    {
-        //        MessageBox.Show($"오류: {ex.Message}", "비교 실패", MessageBoxButton.OK, MessageBoxImage.Error);
+        //        ProgressMessage = $"오류: {ex.Message}";
+        //        MessageBox.Show(ProgressMessage, "비교 실패", MessageBoxButton.OK, MessageBoxImage.Error);
         //    }
         //    finally
         //    {
         //        IsComparing = false;
-        //        ProgressValue = 0;
+        //        // 약간의 지연 후 오버레이 닫기(완료 UX)
+        //        await Task.Delay(300);
+        //        IsProgressVisible = false;
+        //        _cts?.Dispose();
+        //        _cts = null;
         //    }
         //}
 

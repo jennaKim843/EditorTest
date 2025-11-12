@@ -107,8 +107,7 @@
                           AutoGenerateColumns="False"
                           SelectionMode="Single"
                           CanUserAddRows="False"
-                          IsReadOnly="True"
-                          Margin="10">
+                          IsReadOnly="True">
                     
                     <!-- 더블클릭 이벤트 연결 -->
                     <DataGrid.RowStyle>

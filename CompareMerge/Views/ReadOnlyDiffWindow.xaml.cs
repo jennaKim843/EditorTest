@@ -1,13 +1,10 @@
-﻿// ReadOnlyDiffWindow.xaml.cs
-using InnoPVManagementSystem.Innolinc;
-using InnoPVManagementSystem.Common.Utils;  // CsvTableFormatter
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Media;
+using InnoPVManagementSystem.Innolinc;
+using InnoPVManagementSystem.Common.Utils;  // CsvTableFormatter
+using InnoPVManagementSystem.Common.Services;
 
 namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 {
@@ -86,8 +83,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             if (ext == ".csv")
             {
                 // CSV 파싱 (따옴표/콤마/개행 처리)
-                var text = File.ReadAllText(path, Encoding.UTF8);
-                return ParseCsvToListList(text);
+                //var text = File.ReadAllText(path, Encoding.UTF8);
+                //return DiffService.ParseCsvToListList(text);
+                return ParserUtil.ParsePipeDelimitedCsv(path);
             }
 
             // 그 외는 빈 데이터
@@ -99,107 +97,5 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
         {
             return File.ReadAllText(path, Encoding.UTF8);
         }
-
-        // 간단 CSV 파서 (따옴표 이스케이프 "" 지원)
-        private static List<List<string>> ParseCsvToListList(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return new();
-
-            // --- 구분자 자동 감지 ---
-            char delim = DetectDelimiter(text); // ',', '|', '\t' 중 결정
-
-            var rows = new List<List<string>>();
-            using var sr = new StringReader(text);
-
-            string? line;
-            bool inQuote = false;
-            var record = new StringBuilder();
-
-            while ((line = sr.ReadLine()) != null)
-            {
-                if (record.Length > 0) record.Append('\n'); // 멀티라인 필드 지원
-                record.Append(line);
-
-                if (EndsRecord(record.ToString(), delim))
-                {
-                    rows.Add(SplitCsvLine(record.ToString(), delim));
-                    record.Clear();
-                }
-            }
-
-            if (record.Length > 0)
-                rows.Add(SplitCsvLine(record.ToString(), delim));
-
-            return rows;
-
-            static bool EndsRecord(string s, char d)
-            {
-                // 짝수 개의 따옴표면 레코드 종료로 간주
-                int q = 0;
-                for (int i = 0; i < s.Length; i++)
-                    if (s[i] == '"') q += 1;
-                return (q % 2) == 0;
-            }
-
-            static List<string> SplitCsvLine(string line, char d)
-            {
-                var fields = new List<string>();
-                var f = new StringBuilder();
-                bool q = false;
-
-                for (int i = 0; i < line.Length; i++)
-                {
-                    char c = line[i];
-
-                    if (q)
-                    {
-                        if (c == '"')
-                        {
-                            if (i + 1 < line.Length && line[i + 1] == '"')
-                            {
-                                f.Append('"'); // "" -> "
-                                i++;
-                            }
-                            else q = false;
-                        }
-                        else f.Append(c);
-                    }
-                    else
-                    {
-                        if (c == d)
-                        {
-                            fields.Add(f.ToString());
-                            f.Clear();
-                        }
-                        else if (c == '"') q = true;
-                        else f.Append(c);
-                    }
-                }
-                fields.Add(f.ToString());
-                return fields;
-            }
-
-            //CSV 파서를 “구분자 자동감지”로 교체
-            static char DetectDelimiter(string sample)
-            {
-                // 첫 5줄에서 후보별 카운트 비교
-                var lines = sample.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
-                                  .Take(5).ToList();
-                char[] cand = new[] { ',', '|', '\t' };
-                var scores = new Dictionary<char, int>();
-
-                foreach (var d in cand)
-                {
-                    // “한 줄 내 일관된 분리 수” + “라인 간 분리 수 분산 적음” 가산
-                    var counts = lines.Select(l => l.Count(ch => ch == d)).ToList();
-                    int sum = counts.Sum();
-                    int varPenalty = counts.Max() - counts.Min();
-                    scores[d] = sum - varPenalty; // 대충한 휴리스틱
-                }
-
-                return scores.OrderByDescending(kv => kv.Value).First().Key;
-            }
-        }
-
     }
 }
