@@ -1,0 +1,132 @@
+{
+  "Paths": {
+    "IOFolder": "",
+    "LogFolder": "Logs"
+  },
+  "Datas": [
+    {
+      "IoName": "T_BaseSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K100\\T_BaseSpec.io"
+    },
+    {
+      "IoName": "T_BenefitSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K100\\T_BenefitSpec.io"
+    },
+    {
+      "IoName": "T_LoadingSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K100\\T_LoadingSpec.io"
+    },
+    {
+      "IoName": "T_RenewalMapping",
+      "IoPath": "Data\\PV_Calculation_Data\\K100\\T_RenewalMapping.io"
+    },
+    {
+      "IoName": "I_BaseSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K200\\I_BaseSpec.io"
+    },
+    {
+      "IoName": "I_BenefitSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K200\\I_BenefitSpec.io"
+    },
+    {
+      "IoName": "I_LoadingSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K200\\I_LoadingSpec.io"
+    },
+    {
+      "IoName": "I_GteeSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K200\\I_GteeSpec.io"
+    },
+    {
+      "IoName": "V_BaseSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K300\\V_BaseSpec.io"
+    },
+    {
+      "IoName": "V_BenefitSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K300\\V_BenefitSpec.io"
+    },
+    {
+      "IoName": "V_LoadingSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K300\\V_LoadingSpec.io"
+    },
+    {
+      "IoName": "V_GteeSpec",
+      "IoPath": "Data\\PV_Calculation_Data\\K300\\V_GteeSpec.io"
+    },
+    {
+      "IoName": "V_StepUpLvSet",
+      "IoPath": "Data\\PV_Calculation_Data\\K300\\V_StepUpLvSet.io"
+    },
+    {
+      "IoName": "ExpectedLapseSet",
+      "IoPath": "Data\\PV_Calculation_Data\\COMMON_PV\\ExpectedLapseSet.io"
+    },
+    {
+      "IoName": "LoyaltyMaintBonusSet",
+      "IoPath": "Data\\PV_Calculation_Data\\COMMON_PV\\LoyaltyMaintBonusSet.io"
+    },
+    {
+      "IoName": "RiskRateAdj",
+      "IoPath": "Data\\PV_Calculation_Data\\COMMON_PV\\RiskRateAdj.io"
+    },
+    {
+      "IoName": "RiskRateSelect",
+      "IoPath": "Data\\PV_Calculation_Data\\COMMON_PV\\RiskRateSelect.io"
+    },
+    {
+      "IoName": "RiskRateUltimate",
+      "IoPath": "Data\\PV_Calculation_Data\\COMMON_PV\\RiskRateUltimate.io"
+    },
+    {
+      "IoName": "PV_MAPPING_CODE",
+      "IoPath": "Data\\ETC_Data\\PV_MAPPING_CODE.io"
+    }
+  ],
+  "Csv": [
+    {
+      "CsvName": "PV_PROD_INFO_ALL",
+      "CsvPath": "..\\PV_input\\PV_PROD_INFO_ALL.csv"
+    },
+    {
+      "CsvName": "PV_MY_PROD_INFO",
+      "CsvPath": "..\\PV_input\\PV_MY_PROD_INFO.csv"
+    },
+    {
+      "CsvName": "PV_RENEW_RISKRATE_CD_LIST",
+      "CsvPath": "..\\PV_input\\PV_RENEW_RISKRATE_CD_LIST.csv"
+    },
+    {
+      "CsvName": "RUN_SET",
+      "CsvPath": "..\\PV_input\\RUN_SET.csv"
+    }
+
+
+  ],
+  "PV": [
+    {
+      "PVInfoName": "PV_CODE_DB",
+      "PVInfoPath": "..\\PV_input\\PV_CODE_DB.dat"
+    },
+    {
+      "PVInfoName": "PV_RISK_RATE_SPEC",
+      "PVInfoPath": "..\\PV_input\\PV_RISK_RATE_SPEC.csv"
+    },
+    {
+      "PVInfoName": "PV_CODE_DB2",
+      "PVInfoPath": "F:\\PVSystemFiles\\PV_CODE_DB.dat"
+    },
+    {
+      "PVInfoName": "PV_RISK_RATE_SPEC2",
+      "PVInfoPath": "F:\\PVSystemFiles\\PV_RISK_RATE_SPEC.csv"
+    }
+  ],
+  "Json": [
+    {
+      "JsonName": "RegulationList",
+      "JsonPath": "..\\PV_input\\RegulationList.json"
+    }
+  ],
+  "System": {
+    "Environment": "Development",
+    "EnableDebug": true
+  }
+}
