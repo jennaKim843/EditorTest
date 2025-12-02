@@ -1,0 +1,7 @@
+﻿<Window x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:v="clr-namespace:InnoPVManagementSystem.Modules.CompareMerge.Views"
+        Title="파일 비교 (읽기 전용)" Width="1200" Height="800">
+    <v:ReadOnlyDiffView x:Name="DiffView"/>
+</Window>
