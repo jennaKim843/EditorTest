@@ -1,57 +1,70 @@
-﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<UserControl x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.DataCompareMerge"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.DataCompareMerge"
-             xmlns:vm="clr-namespace:InnoPVManagementSystem.Modules.CompareMerge.ViewModels" 
+             xmlns:vm="clr-namespace:InnoPVManagementSystem.Modules.CompareMerge.ViewModels"
              Style="{StaticResource BaseTabContentStyle}">
-    
+
     <UserControl.DataContext>
-        <vm:DataCompareMergeViewModel/>
+        <vm:DataCompareMergeViewModel />
     </UserControl.DataContext>
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="StyledTabControl" TargetType="TabControl">
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin"  Value="10" />
         </Style>
     </UserControl.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- 조회조건 영역 -->
-        <Border Grid.Row="0" Style="{StaticResource SearchBoxContainerStyle}" >
+        <Border Grid.Row="0"
+                Style="{StaticResource SearchBoxContainerStyle}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="1*"/>
-                    <ColumnDefinition Width="160"/>
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="100" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="160" />
                 </Grid.ColumnDefinitions>
 
-                <!-- 조회조건 -->
-                <Label Grid.Row="0" Grid.Column="0" x:Name="lbBaseFilePath" Content ="기준경로" Style="{StaticResource SearchLabelStyle}"/>
-                <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" IsReadOnly="True"
+                <!-- 기준 경로 -->
+                <Label Grid.Row="0" Grid.Column="0"
+                       x:Name="lbBaseFilePath"
+                       Content="기준경로"
+                       Style="{StaticResource SearchLabelStyle}" />
+
+                <TextBox Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3"
+                         IsReadOnly="True"
+                         Margin="5"
                          Style="{StaticResource SearchTextBoxStyle}"
-                         Text="{Binding BaseFilePath, UpdateSourceTrigger=PropertyChanged}" Margin="5" />
-                <Button Grid.Column="4" Content="폴더선택"
+                         Text="{Binding BaseFilePath, UpdateSourceTrigger=PropertyChanged}" />
+
+                <Button Grid.Row="0" Grid.Column="4"
+                        Content="경로선택"
                         Style="{StaticResource noIconButtonStyle}"
                         Command="{Binding SelectFolderCommand}"
-                        HorizontalAlignment="Stretch"/>
+                        HorizontalAlignment="Stretch" />
 
+                <!-- 기준 / 비교 폴더 -->
+                <Label Grid.Row="1" Grid.Column="0"
+                       x:Name="lbStandardFolder"
+                       Content="기준폴더"
+                       Style="{StaticResource SearchLabelStyle}" />
 
-                <Label Grid.Row="1" Grid.Column="0" x:Name="lbStandardFolder" Content="기준폴더" Style="{StaticResource SearchLabelStyle}"/>
                 <ComboBox Grid.Row="1" Grid.Column="1"
                           Style="{StaticResource SearchComboBoxStyle}"
                           ItemsSource="{Binding StandardFolderList}"
@@ -59,7 +72,11 @@
                           SelectedValuePath="Code"
                           SelectedValue="{Binding SelectedStandardFolder}" />
 
-                <Label Grid.Row="1" Grid.Column="2" x:Name="lbTargetFolder" Content="비교폴더" Style="{StaticResource SearchLabelStyle}"/>
+                <Label Grid.Row="1" Grid.Column="2"
+                       x:Name="lbTargetFolder"
+                       Content="비교폴더"
+                       Style="{StaticResource SearchLabelStyle}" />
+
                 <ComboBox Grid.Row="1" Grid.Column="3"
                           Style="{StaticResource SearchComboBoxStyle}"
                           ItemsSource="{Binding TargetFolderList}"
@@ -67,42 +84,43 @@
                           SelectedValuePath="Code"
                           SelectedValue="{Binding SelectedTargetFolder}" />
 
-                <StackPanel Grid.Row="1" Grid.Column="6" Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel Grid.Row="1" Grid.Column="6"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right">
                     <Button Content="비교"
                             Style="{StaticResource SearchButtonStyle}"
                             Command="{Binding CompareCommand}"
-                            Margin="5,0,2,0"/>
+                            Margin="5,0,2,0" />
                     <Button Content="초기화"
                             Style="{StaticResource InitButtonStyle}"
                             Command="{Binding InitCommand}"
-                            Margin="5,0,2,0"/>
+                            Margin="5,0,2,0" />
                 </StackPanel>
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row ="1" Orientation="Horizontal" HorizontalAlignment="Right">
+        <!-- 상단 버튼 -->
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right">
             <Button Content="적용"
                     Style="{StaticResource saveButtonStyle}"
                     Command="{Binding ApplyCommand}"
                     Margin="0,0,5,0"
-                    Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    Visibility="{Binding IsAdmin,
+                                         Converter={StaticResource BoolToVisibilityConverter}}" />
             <Button Content="전체 적용"
                     Width="90"
                     Style="{StaticResource saveButtonStyle}"
                     Command="{Binding ApplyAllCommand}"
                     Margin="0,0,23,0"
-                    Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVisibilityConverter}}" Cursor="Hand"/>
+                    Cursor="Hand"
+                    Visibility="{Binding IsAdmin,
+                                         Converter={StaticResource BoolToVisibilityConverter}}" />
         </StackPanel>
 
+        <!-- 결과 영역 -->
         <Grid Grid.Row="2">
-            <!-- 결과 그리드 -->
-            <!--<Grid Grid.Row="1" >
-                <DataGrid Style="{StaticResource DefaultDataGridStyle}"
-                          ItemsSource="{Binding Table.DefaultView}"
-                          AutoGenerateColumns="True"
-                          IsReadOnly="True"
-                          Margin="10" />
-            </Grid>-->
             <Grid Grid.Row="1">
                 <DataGrid Style="{StaticResource DefaultDataGridStyle}"
                           ItemsSource="{Binding GridItems}"
@@ -111,44 +129,85 @@
                           SelectedItem="{Binding SelectedItem}"
                           CanUserAddRows="False"
                           IsReadOnly="True">
-                    
+
                     <!-- 더블클릭 이벤트 연결 -->
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow">
-                            <EventSetter Event="MouseDoubleClick" Handler="OnRowDoubleClick"/>
+                            <EventSetter Event="MouseDoubleClick"
+                                         Handler="OnRowDoubleClick" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding HasDiff}" Value="True">
+                                    <Setter Property="Background" Value="LightGreen"/>
+                                </DataTrigger>
+                            </Style.Triggers>
                         </Style>
                     </DataGrid.RowStyle>
-                    
+
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="순번"     Binding="{Binding No}"           Width="60"  IsReadOnly="True"/>
-                        <DataGridTextColumn Header="파일명"   Binding="{Binding FileName}"     Width="*"   IsReadOnly="True"/>
-                        <DataGridTextColumn Header="추가(건)" Binding="{Binding AddedCount}"   Width="90"  IsReadOnly="True"/>
-                        <DataGridTextColumn Header="삭제(건)" Binding="{Binding DeletedCount}" Width="90"  IsReadOnly="True"/>
-                        <DataGridTextColumn Header="수정(건)" Binding="{Binding ModifiedCount}" Width="90"  IsReadOnly="True"/>
-                        <DataGridTextColumn Header="비고"     Binding="{Binding Message}"     Width="2*"   IsReadOnly="True"/>
+
+                        <DataGridTextColumn Header="순번"
+                                            Binding="{Binding No}"
+                                            Width="60"
+                                            IsReadOnly="True" />
+
+                        <DataGridTextColumn Header="파일명"
+                                            Binding="{Binding FileName}"
+                                            Width="*"
+                                            IsReadOnly="True" />
+
+                        <DataGridTextColumn Header="추가(건)"
+                                            Binding="{Binding AddedCountText}"
+                                            Width="90"
+                                            IsReadOnly="True"
+                                            ElementStyle="{StaticResource CenterTextStyle}" />
+
+                        <DataGridTextColumn Header="삭제(건)"
+                                            Binding="{Binding DeletedCountText}"
+                                            Width="90"
+                                            IsReadOnly="True"
+                                            ElementStyle="{StaticResource CenterTextStyle}" />
+
+                        <DataGridTextColumn Header="수정(건)"
+                                            Binding="{Binding ModifiedCountText}"
+                                            Width="90"
+                                            IsReadOnly="True"
+                                            ElementStyle="{StaticResource CenterTextStyle}" />
+
+                        <DataGridTextColumn Header="비고"
+                                            Binding="{Binding Message}"
+                                            Width="2*"
+                                            IsReadOnly="True" />
+
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
-
         </Grid>
 
-        <!-- 진행 오버레이: Grid 최하단에 추가 (모든 Row를 덮도록 RowSpan=3) -->
-        <Grid Grid.Row="0" Grid.RowSpan="3"
+        <!-- 진행 오버레이 -->
+        <Grid Grid.Row="0"
+              Grid.RowSpan="3"
+              Panel.ZIndex="999"
               Background="#66000000"
-              Visibility="{Binding IsProgressVisible, Converter={StaticResource BoolToVisibilityConverter}}"
-              Panel.ZIndex="999">
-            <Border CornerRadius="8" Background="White" Padding="20"
-                    HorizontalAlignment="Center" VerticalAlignment="Center"
-                    Width="380">
+              Visibility="{Binding IsProgressVisible,
+                                   Converter={StaticResource BoolToVisibilityConverter}}">
+            <Border CornerRadius="8"
+                    Background="White"
+                    Padding="20"
+                    Width="380"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
                 <StackPanel>
-                    <TextBlock Text="비교 작업을 수행 중입니다..." 
-                       FontWeight="SemiBold" Margin="0,0,0,8"
-                       HorizontalAlignment="Center"/>
-                    <ProgressBar Height="10" Minimum="0" Maximum="100"
-                         Value="{Binding ProgressValue}"/>
-                    <TextBlock Text="{Binding ProgressMessage}" 
-                       Margin="0,8,0,0"
-                       HorizontalAlignment="Center"/>
+                    <TextBlock Text="비교 작업을 수행 중입니다..."
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,8"
+                               HorizontalAlignment="Center" />
+                    <ProgressBar Height="10"
+                                 Minimum="0"
+                                 Maximum="100"
+                                 Value="{Binding ProgressValue}" />
+                    <TextBlock Text="{Binding ProgressMessage}"
+                               Margin="0,8,0,0"
+                               HorizontalAlignment="Center" />
                 </StackPanel>
             </Border>
         </Grid>

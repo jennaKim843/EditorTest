@@ -1,4 +1,4 @@
-using DiffPlex;
+﻿using DiffPlex;
 using DiffPlex.Chunkers;
 using DiffPlex.DiffBuilder;
 using DiffPlex.DiffBuilder.Model;
@@ -17,22 +17,11 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 {
     public partial class ReadOnlyDiffView : UserControl
     {
+        // ------------ 상태 필드 ------------
+
         private string? _leftPath;
         private string? _rightPath;
-
         private string? _fileNameForKeyLookup;
-
-        public void SetFileNameForKeyLookup(string filePathOrName)
-        {
-            if (string.IsNullOrWhiteSpace(filePathOrName))
-            {
-                _fileNameForKeyLookup = null;
-                return;
-            }
-
-            // 전체 경로든, 파일명만이든 들어와도 괜찮게 처리
-            _fileNameForKeyLookup = Path.GetFileName(filePathOrName);
-        }
 
         // 스크롤 동기화 루프 방지
         private bool _syncing;
@@ -52,36 +41,18 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
         // 인라인 비교 모드
         public enum IntraLineMode { None, Word, Character, Pipe }
 
-        // ── 키 기반 비교 컨텍스트 ──────────────────────────────
-        private string _currentDelimiter = "|";
-        private List<string>? _keyColumns;
-        private int[]? _keyColumnIndexes;
-        private HashSet<int>? _keyColumnIndexSet;
-        private Dictionary<string, int>? _headerIndexMap;
-        private bool _keyContextInitialized;
+        // 키 기반 비교 컨텍스트
+        private KeyDiffContext? _keyDiff;
 
-        // [NEW] 키/라인 쌍 보관용
-        private sealed class KeyedLine
-        {
-            public string Key { get; }
-            public string LineText { get; }
-
-            public KeyedLine(string key, string lineText)
-            {
-                Key = key;
-                LineText = lineText;
-            }
-        }
+        // ------------ 생성자 ------------
 
         public ReadOnlyDiffView()
         {
             InitializeComponent();
 
-            // 기본 라인번호 대신 커스텀 마진 사용
             LeftEditor.ShowLineNumbers = false;
             RightEditor.ShowLineNumbers = false;
 
-            // 양방향 스크롤 동기화 (세로/가로 모두)
             LeftEditor.TextArea.TextView.ScrollOffsetChanged += (_, __) =>
                 SyncScroll(LeftEditor, RightEditor);
 
@@ -91,24 +62,37 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             SetupEditor(LeftEditor);
             SetupEditor(RightEditor);
 
-            // 라인번호 마진 추가
             _leftNumMargin = new DiffLineNumberMargin();
             _rightNumMargin = new DiffLineNumberMargin();
             LeftEditor.TextArea.LeftMargins.Insert(0, _leftNumMargin);
             RightEditor.TextArea.LeftMargins.Insert(0, _rightNumMargin);
 
-            // 현재 변경 라인 마커
             _leftChangeMarker = new CurrentChangeColorizer();
             _rightChangeMarker = new CurrentChangeColorizer();
             LeftEditor.TextArea.TextView.LineTransformers.Add(_leftChangeMarker);
             RightEditor.TextArea.TextView.LineTransformers.Add(_rightChangeMarker);
         }
 
-        // 실제 스크롤 동기화 로직 (양방향)
-        //  - 세로: src의 "스크롤 비율" 기준으로 dst 위치 계산
-        //  - 가로: offset 그대로 복사
-        //  - _syncing 플래그로 루프 방지
-        //  - 오프셋 차이가 거의 없으면 아무 것도 안 해서 깜빡임 최소화
+        // ------------ 공용 설정 ------------
+
+        public void SetFileNameForKeyLookup(string filePathOrName)
+        {
+            _fileNameForKeyLookup = string.IsNullOrWhiteSpace(filePathOrName)
+                ? null
+                : Path.GetFileName(filePathOrName);
+        }
+
+        private static void SetupEditor(TextEditor ed)
+        {
+            ed.IsReadOnly = true;
+            ed.Options.ConvertTabsToSpaces = true;
+            ed.Options.ShowSpaces = false;
+            ed.Options.ShowTabs = false;
+            ed.Options.EnableHyperlinks = false;
+            ed.Options.EnableEmailHyperlinks = false;
+        }
+
+        // ------------ 스크롤 동기화 ------------
         private void SyncScroll(TextEditor src, TextEditor dst)
         {
             if (_syncing) return;
@@ -116,35 +100,27 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             var srcView = src.TextArea.TextView;
             var dstView = dst.TextArea.TextView;
 
-            // 아직 레이아웃이 안 됐으면 패스
             if (!srcView.VisualLinesValid || !dstView.VisualLinesValid)
                 return;
 
-            // ── 1) 세로: 비율 기반 동기화 ──
             double srcScrollable = Math.Max(0, srcView.DocumentHeight - srcView.ActualHeight);
             double dstScrollable = Math.Max(0, dstView.DocumentHeight - dstView.ActualHeight);
 
-            double targetV = dstView.VerticalOffset; // 기본값: 그대로
+            double targetV = dstView.VerticalOffset;
             bool canSyncVertical = (srcScrollable > 0) && (dstScrollable > 0);
 
             if (canSyncVertical)
             {
-                // src에서 현재 스크롤 비율 (0.0 ~ 1.0)
                 double ratio = srcView.VerticalOffset / srcScrollable;
-                if (ratio < 0) ratio = 0;
-                if (ratio > 1) ratio = 1;
-
-                // dst의 동일 비율 위치
+                ratio = Math.Max(0, Math.Min(1, ratio));
                 targetV = ratio * dstScrollable;
             }
 
-            // ── 2) 가로: 기존처럼 절대 offset 복사 ──
             double targetH = srcView.HorizontalOffset;
 
-            bool verticalClose = Math.Abs(dstView.VerticalOffset - targetV) < 0.5;   // 약간 느슨하게
+            bool verticalClose = Math.Abs(dstView.VerticalOffset - targetV) < 0.5;
             bool horizontalClose = Math.Abs(dstView.HorizontalOffset - targetH) < 0.5;
 
-            // 둘 다 거의 같으면 아무 것도 안 함
             if (verticalClose && horizontalClose)
                 return;
 
@@ -164,19 +140,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             }
         }
 
-
-        #region DependencyProperties
-
-        private static void SetupEditor(TextEditor ed)
-        {
-            ed.IsReadOnly = true;
-            ed.Options.ConvertTabsToSpaces = true;
-            ed.Options.ShowSpaces = false;
-            ed.Options.ShowTabs = false;
-            ed.Options.EnableHyperlinks = false;
-            ed.Options.EnableEmailHyperlinks = false;
-        }
-
+        // ------------ DP & 명령 ------------
         public string StatusText
         {
             get => (string)GetValue(StatusTextProperty);
@@ -193,20 +157,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
         }
         public static readonly DependencyProperty ModeProperty =
             DependencyProperty.Register(nameof(Mode), typeof(IntraLineMode), typeof(ReadOnlyDiffView),
-                new PropertyMetadata(IntraLineMode.Pipe)); // 기본 Pipe
+                new PropertyMetadata(IntraLineMode.Pipe));
 
-        #endregion
-
-        #region Public UI Handlers
-
-        public void CompareNow() => RunCompare();
-
-        private void OnCompare(object sender, RoutedEventArgs e) => RunCompare();
-
-        private void OnNextChange(object? sender, RoutedEventArgs e) => GoToChange(+1);
-        private void OnPrevChange(object? sender, RoutedEventArgs e) => GoToChange(-1);
-
-        // ── 카운트 바인딩용 DependencyProperty ──
         public int AddedRows
         {
             get => (int)GetValue(AddedRowsProperty);
@@ -234,60 +186,52 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             DependencyProperty.Register(nameof(ModifiedRows), typeof(int), typeof(ReadOnlyDiffView),
                 new PropertyMetadata(0));
 
-        #endregion
+        public void CompareNow() => RunCompare();
 
-        #region Orchestrator
+        private void OnCompare(object sender, RoutedEventArgs e) => RunCompare();
+        private void OnNextChange(object? sender, RoutedEventArgs e) => GoToChange(+1);
+        private void OnPrevChange(object? sender, RoutedEventArgs e) => GoToChange(-1);
 
-        // [CHANGED] 키가 있으면 키 기반 정렬, 없으면 기존 DiffPlex 사용
+        // ------------ Compare 파이프라인 (핵심) ------------
         public void RunCompare()
         {
             var leftRaw = LeftEditor.Text ?? string.Empty;
             var rightRaw = RightEditor.Text ?? string.Empty;
 
-            // 키 정보 초기화 (fileKeyConfig 기반)
-            InitKeyContext(leftRaw);
+            // 1) 키 컨텍스트 생성 (없으면 null)
+            _keyDiff = KeyDiffContext.TryCreate(_fileNameForKeyLookup, leftRaw);
 
-            if (_keyContextInitialized && _keyColumnIndexes != null && _keyColumnIndexes.Length > 0)
+            // 2) 라인 생성: 키가 있으면 키 정렬, 없으면 DiffPlex
+            IList<DiffPiece> leftLines;
+            IList<DiffPiece> rightLines;
+
+            var differ = new Differ();
+
+            if (_keyDiff != null)
             {
-                RunCompareKeyAligned(leftRaw, rightRaw);   // [NEW]
+                (leftLines, rightLines) = BuildKeyAlignedLines(_keyDiff, leftRaw, rightRaw);
             }
             else
             {
-                RunCompareStandard(leftRaw, rightRaw);     // [NEW]
+                var side = new SideBySideDiffBuilder(differ).BuildDiffModel(leftRaw, rightRaw);
+                leftLines = side.OldText.Lines;
+                rightLines = side.NewText.Lines;
             }
-        }
 
-        // [NEW] 기존 방식 (DiffPlex 라인 정렬 + 키 기반 타입 재분류)
-        private void RunCompareStandard(string leftRaw, string rightRaw)
-        {
-            var differ = new Differ();
-            var side = new SideBySideDiffBuilder(differ).BuildDiffModel(leftRaw, rightRaw);
-            var leftPane = side.OldText;
-            var rightPane = side.NewText;
-
-            // 키 기준으로 Modified를 Inserted/Deleted로 재분류
-            NormalizeChangeTypesByKey(leftPane, rightPane);
-
-            var leftLines = leftPane.Lines;
-            var rightLines = rightPane.Lines;
-
+            // 3) 표시용 문자열
             string leftDisplay = BuildAligned(leftLines, leftRaw.Length);
             string rightDisplay = BuildAligned(rightLines, rightRaw.Length);
 
             LeftEditor.Text = leftDisplay;
             RightEditor.Text = rightDisplay;
 
+            // 4) 라인번호 / 인라인 / 색칠 / 상태 / 앵커
             UpdateLineNumberMargins(leftLines, rightLines);
 
             var (subsLeft, subsRight) = BuildInlineSubPieces(
-                leftLines,
-                rightLines,
-                leftDisplay,
-                rightDisplay,
-                differ);
+                leftLines, rightLines, leftDisplay, rightDisplay, differ);
 
             ApplyColorizers(leftLines, rightLines, subsLeft, subsRight);
-
             UpdateStatus(leftLines, rightLines);
 
             RebuildChangeAnchors(leftLines, rightLines);
@@ -309,58 +253,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             _rightChangeMarker?.SetLineTypes(rightLines);
         }
 
-        // [NEW] 키 기반 정렬 버전 (키가 정의된 파일에만 사용)
-        private void RunCompareKeyAligned(string leftRaw, string rightRaw)
-        {
-            var differ = new Differ();
-
-            var (leftLines, rightLines) = BuildKeyAlignedLines(leftRaw, rightRaw);
-
-            string leftDisplay = BuildAligned(leftLines, leftRaw.Length);
-            string rightDisplay = BuildAligned(rightLines, rightRaw.Length);
-
-            LeftEditor.Text = leftDisplay;
-            RightEditor.Text = rightDisplay;
-
-            UpdateLineNumberMargins(leftLines, rightLines);
-
-            var (subsLeft, subsRight) = BuildInlineSubPieces(
-                leftLines,
-                rightLines,
-                leftDisplay,
-                rightDisplay,
-                differ);
-
-            ApplyColorizers(leftLines, rightLines, subsLeft, subsRight);
-
-            UpdateStatus(leftLines, rightLines);
-
-            RebuildChangeAnchors(leftLines, rightLines);
-            if (_changeAnchors.Count > 0)
-            {
-                _currentChangeIndex = -1;
-                GoToChange(+1);
-            }
-            else
-            {
-                _currentChangeIndex = -1;
-                _leftChangeMarker?.Update(null);
-                _rightChangeMarker?.Update(null);
-                LeftEditor.TextArea.TextView.Redraw();
-                RightEditor.TextArea.TextView.Redraw();
-            }
-
-            _leftChangeMarker?.SetLineTypes(leftLines);
-            _rightChangeMarker?.SetLineTypes(rightLines);
-        }
-
-        #endregion
-
-        #region Key-aligned line builder (NEW)
-
-        // [NEW] 키 기준으로 좌/우 라인을 정렬해서 DiffPiece 목록을 만든다.
+        // ------------ 키 정렬 기반 라인 빌더 ------------
         private (IList<DiffPiece> leftLines, IList<DiffPiece> rightLines)
-            BuildKeyAlignedLines(string leftText, string rightText)
+            BuildKeyAlignedLines(KeyDiffContext ctx, string leftText, string rightText)
         {
             static string[] SplitLines(string text) =>
                 text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
@@ -371,7 +266,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             var leftResult = new List<DiffPiece>();
             var rightResult = new List<DiffPiece>();
 
-            // 1) 헤더(0행) 처리
+            // 1) 헤더 1행
             string leftHeader = leftArr.Length > 0 ? leftArr[0] : string.Empty;
             string rightHeader = rightArr.Length > 0 ? rightArr[0] : leftHeader;
 
@@ -383,7 +278,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 
             int dataStart = 1;
 
-            // 2) 두 번째 줄(구분선 등)이 같다면 그대로 Unchanged 로 한 줄 더 추가
+            // 2) 구분선(2행) 동일 시 그대로 한 줄 더
             if (leftArr.Length > 1 || rightArr.Length > 1)
             {
                 string l2 = leftArr.Length > 1 ? leftArr[1] : string.Empty;
@@ -397,9 +292,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                 }
             }
 
-            // 3) 데이터 부분을 KeyedLine 리스트로 변환 (dataStart 행부터)
-            List<KeyedLine> leftData = BuildKeyedLines(leftArr, dataStart);
-            List<KeyedLine> rightData = BuildKeyedLines(rightArr, dataStart);
+            // 3) 데이터 영역을 키 기반으로 merge-join
+            var leftData = ctx.BuildKeyedLines(leftArr, dataStart);
+            var rightData = ctx.BuildKeyedLines(rightArr, dataStart);
 
             int i = 0, j = 0;
             while (i < leftData.Count || j < rightData.Count)
@@ -428,8 +323,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                 int cmp = string.Compare(lcur.Key, rcur.Key, StringComparison.Ordinal);
                 if (cmp == 0)
                 {
-                    // 키 동일 → 수정/유지 판정
-                    bool modified = HasNonKeyDiff(lcur.LineText, rcur.LineText);
+                    bool modified = ctx.HasNonKeyDiff(lcur.LineText, rcur.LineText);
                     var type = modified ? ChangeType.Modified : ChangeType.Unchanged;
 
                     leftResult.Add(new DiffPiece(lcur.LineText, type));
@@ -440,14 +334,14 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                 }
                 else if (cmp < 0)
                 {
-                    // 왼쪽 키가 더 작음 → 왼쪽만 있는 행 (Deleted)
+                    // 왼쪽 키가 더 작음 → 삭제
                     var l = leftData[i++];
                     leftResult.Add(new DiffPiece(l.LineText, ChangeType.Deleted));
                     rightResult.Add(new DiffPiece(string.Empty, ChangeType.Imaginary));
                 }
                 else
                 {
-                    // 오른쪽 키가 더 작음 → 오른쪽만 있는 행 (Added)
+                    // 오른쪽 키가 더 작음 → 추가
                     var r = rightData[j++];
                     leftResult.Add(new DiffPiece(string.Empty, ChangeType.Imaginary));
                     rightResult.Add(new DiffPiece(r.LineText, ChangeType.Inserted));
@@ -457,38 +351,11 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return (leftResult, rightResult);
         }
 
-        // [NEW] 배열 + 시작 인덱스 → KeyedLine 리스트
-        private List<KeyedLine> BuildKeyedLines(string[] lines, int startIndex)
-        {
-            var list = new List<KeyedLine>();
-
-            if (!_keyContextInitialized || _keyColumnIndexes == null)
-                return list;
-
-            for (int i = startIndex; i < lines.Length; i++)
-            {
-                var line = lines[i];
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                if (IsHeaderLine(line)) continue; // 중간에 헤더 비슷한 줄이 또 있어도 방어
-
-                string key = GetKeyFromLine(line);
-                if (string.IsNullOrEmpty(key)) continue;
-
-                list.Add(new KeyedLine(key, line));
-            }
-
-            return list;
-        }
-
-        #endregion
-
-        #region Inline Pieces
-
-        // [CHANGED] DiffPaneModel 대신 IList<DiffPiece> 사용
+        // ------------ 인라인 하이라이트 ------------
         private (List<IList<DiffPiece>>? left, List<IList<DiffPiece>>? right)
             BuildInlineSubPieces(
-                IList<DiffPiece> leftLinesModel,
-                IList<DiffPiece> rightLinesModel,
+                IList<DiffPiece> leftLines,
+                IList<DiffPiece> rightLines,
                 string leftDisplay,
                 string rightDisplay,
                 Differ differ)
@@ -496,28 +363,26 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             if (Mode == IntraLineMode.None)
                 return (null, null);
 
-            var subsLeft = new List<IList<DiffPiece>>(leftLinesModel.Count);
-            var subsRight = new List<IList<DiffPiece>>(rightLinesModel.Count);
+            var subsLeft = new List<IList<DiffPiece>>(leftLines.Count);
+            var subsRight = new List<IList<DiffPiece>>(rightLines.Count);
 
             var leftLinesArr = leftDisplay.Split('\n');
             var rightLinesArr = rightDisplay.Split('\n');
 
-            int count = Math.Max(leftLinesModel.Count, rightLinesModel.Count);
+            int count = Math.Max(leftLines.Count, rightLines.Count);
             var inline = (Mode == IntraLineMode.Word || Mode == IntraLineMode.Character)
                 ? new InlineDiffBuilder(differ)
                 : null;
 
             for (int i = 0; i < count; i++)
             {
-                DiffPiece? lp = i < leftLinesModel.Count ? leftLinesModel[i] : null;
-                DiffPiece? rp = i < rightLinesModel.Count ? rightLinesModel[i] : null;
+                DiffPiece? lp = i < leftLines.Count ? leftLines[i] : null;
+                DiffPiece? rp = i < rightLines.Count ? rightLines[i] : null;
 
                 subsLeft.Add(Array.Empty<DiffPiece>());
                 subsRight.Add(Array.Empty<DiffPiece>());
 
                 if (lp == null || rp == null) continue;
-
-                // 키 기준 수정 여부 판단
                 if (!IsModifiedLine(lp, rp)) continue;
 
                 var l = i < leftLinesArr.Length ? TrimCR(leftLinesArr[i]) : string.Empty;
@@ -542,8 +407,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                             var inlineModel = inline!.BuildDiffModel(l, r, ignoreWhitespace: false, ignoreCase: false, chunker);
                             if (inlineModel?.Lines == null) break;
 
-                            subsLeft[i] = MapForLeft(inlineModel.Lines);   // 삽입은 왼쪽에서 숨김
-                            subsRight[i] = MapForRight(inlineModel.Lines); // 삭제는 오른쪽에서 숨김
+                            subsLeft[i] = MapForLeft(inlineModel.Lines);
+                            subsRight[i] = MapForRight(inlineModel.Lines);
                             break;
                         }
                 }
@@ -552,7 +417,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return (subsLeft, subsRight);
         }
 
-        // Pipe 토큰 단위 비교
         private static (IList<DiffPiece> leftPieces, IList<DiffPiece> rightPieces)
             BuildPipePiecesForSides(string leftLine, string rightLine)
         {
@@ -582,7 +446,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return (lres, rres);
         }
 
-        // 왼쪽: Inserted → Unchanged 로 매핑
         private static IList<DiffPiece> MapForLeft(IList<DiffPiece> src)
         {
             if (src.Count == 0) return Array.Empty<DiffPiece>();
@@ -596,7 +459,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return arr;
         }
 
-        // 오른쪽: Deleted → Unchanged 로 매핑
         private static IList<DiffPiece> MapForRight(IList<DiffPiece> src)
         {
             if (src.Count == 0) return Array.Empty<DiffPiece>();
@@ -610,11 +472,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return arr;
         }
 
-        #endregion
+        // ------------ 컬러라이저 / 마진 (기존 유지) ------------
 
-        #region Colorizers + Margins
-
-        // 컬러라이저 재적용
         private void ApplyColorizers(
             IList<DiffPiece> leftLines,
             IList<DiffPiece> rightLines,
@@ -627,8 +486,21 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             RemoveTransformers<WordAwareColorizer>(lt);
             RemoveTransformers<WordAwareColorizer>(rt);
 
-            lt.Insert(0, new WordAwareColorizer(leftLines, Mode, wordSubsLeft));
-            rt.Insert(0, new WordAwareColorizer(rightLines, Mode, wordSubsRight));
+            //lt.Insert(0, new WordAwareColorizer(leftLines, Mode, wordSubsLeft));
+            //rt.Insert(0, new WordAwareColorizer(rightLines, Mode, wordSubsRight));
+            lt.Add(new WordAwareColorizer(
+                leftLines,
+                Mode,
+                wordSubsLeft,
+                lineNumber => _leftChangeMarker?.IsCurrentLine(lineNumber) ?? false
+            ));
+
+            rt.Add(new WordAwareColorizer(
+                rightLines,
+                Mode,
+                wordSubsRight,
+                lineNumber => _rightChangeMarker?.IsCurrentLine(lineNumber) ?? false
+            ));
 
             LeftEditor.TextArea.TextView.Redraw();
             RightEditor.TextArea.TextView.Redraw();
@@ -666,6 +538,29 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                 InvalidateVisual();
             }
 
+            protected override void OnTextViewChanged(TextView oldTextView, TextView newTextView)
+            {
+                base.OnTextViewChanged(oldTextView, newTextView);
+
+                if (oldTextView != null)
+                {
+                    oldTextView.ScrollOffsetChanged -= TextView_Changed;
+                    oldTextView.VisualLinesChanged -= TextView_Changed;
+                }
+
+                if (newTextView != null)
+                {
+                    newTextView.ScrollOffsetChanged += TextView_Changed;
+                    newTextView.VisualLinesChanged += TextView_Changed;
+                }
+            }
+
+            // 스크롤/레이아웃 바뀔 때마다 다시 그리기
+            private void TextView_Changed(object? sender, EventArgs e)
+            {
+                InvalidateVisual();
+            }
+
             protected override Size MeasureOverride(Size availableSize)
             {
                 var ft = new FormattedText(
@@ -673,10 +568,11 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                     System.Globalization.CultureInfo.CurrentUICulture,
                     FlowDirection.LeftToRight,
                     _typeface, 12, _fg, 1.25);
+
 #if NET5_0_OR_GREATER
                 double w = ft.WidthIncludingTrailingWhitespace + 12;
 #else
-                double w = ft.Width + 12;
+        double w = ft.Width + 12;
 #endif
                 return new Size(w, 0);
             }
@@ -687,46 +583,46 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                 if (textView == null || !textView.VisualLinesValid)
                     return;
 
-                dc.DrawRectangle(new SolidColorBrush(Color.FromArgb(12, 0, 0, 0)), null, new Rect(0, 0, ActualWidth, ActualHeight));
+                dc.DrawRectangle(
+                    new SolidColorBrush(Color.FromArgb(12, 0, 0, 0)), null,
+                    new Rect(0, 0, ActualWidth, ActualHeight));
 
                 foreach (var vl in textView.VisualLines)
                 {
-                    int docIndex = vl.FirstDocumentLine.LineNumber - 1;
-                    if (_lineNumbers == null || docIndex < 0 || docIndex >= _lineNumbers.Count)
+                    int docLine = vl.FirstDocumentLine.LineNumber;
+                    int index = docLine - 1;
+
+                    if (index < 0 || index >= _lineNumbers.Count)
                         continue;
 
-                    // ① _lineNumbers 기반 우선 시도
-                    int? n = null;
-
-                    if (_lineNumbers != null &&
-                        docIndex < _lineNumbers.Count)
-                    {
-                        n = _lineNumbers[docIndex];
-                    }
-
-                    // ② fallback: 그냥 실제 라인 번호 찍기
+                    int? n = _lineNumbers[index];
                     if (!n.HasValue)
-                    {
-                        n = vl.FirstDocumentLine.LineNumber;
-                    }
+                        continue;
 
                     string text = n.Value.ToString().PadLeft(_digits);
 
-                    double y = vl.GetTextLineVisualYPosition(vl.TextLines[0], VisualYPosition.TextTop);
+                    double y =
+                        vl.GetTextLineVisualYPosition(vl.TextLines[0], VisualYPosition.TextTop)
+                        - textView.VerticalOffset;
 
                     var ft = new FormattedText(
-                        text, System.Globalization.CultureInfo.CurrentUICulture,
-                        FlowDirection.LeftToRight, _typeface, 12, _fg, 1.25);
+                        text,
+                        System.Globalization.CultureInfo.CurrentUICulture,
+                        FlowDirection.LeftToRight,
+                        _typeface, 12, _fg, 1.25);
+
 #if NET5_0_OR_GREATER
                     double textWidth = ft.WidthIncludingTrailingWhitespace;
 #else
-                    double textWidth = ft.Width;
+            double textWidth = ft.Width;
 #endif
                     double x = ActualWidth - textWidth - 6;
-                    dc.DrawText(ft, new Point(Math.Max(0, x), y));
+
+                    dc.DrawText(ft, new Point(x, y));
                 }
             }
         }
+
 
         // 현재 변경 라인 강조(기존 계열 색을 더 진하게)
         private sealed class CurrentChangeColorizer : DocumentColorizingTransformer
@@ -740,6 +636,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 
             public void SetLineTypes(IList<DiffPiece> lineTypes) => _lineTypes = lineTypes;
             public void Update(int? lineNumber) => _lineNumber = lineNumber;
+            public bool IsCurrentLine(int lineNumber) => _lineNumber.HasValue && _lineNumber.Value == lineNumber;
 
             private static Brush Freeze(Brush b)
             {
@@ -782,20 +679,25 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             private static readonly Brush ModLine = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#16FFC107")));
 
             // Word colors
-            private static readonly Brush InsWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#734CAF50")));
-            private static readonly Brush DelWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#73F44336")));
-            private static readonly Brush ModWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#73FFC107")));
+            //private static readonly Brush InsWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#734CAF50")));
+            //private static readonly Brush DelWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#73F44336")));
+            //private static readonly Brush ModWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#73FFC107")));
+            private static readonly Brush InsWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#802E7D32"))); // 진한 녹색
+            private static readonly Brush DelWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#80C62828"))); // 진한 적색
+            private static readonly Brush ModWord = Freeze(new SolidColorBrush((Color)ColorConverter.ConvertFromString("#80EF6C00"))); // 진한 오렌지
 
 
             private readonly IList<DiffPiece> _lines;
             private readonly IntraLineMode _mode;
             private readonly List<IList<DiffPiece>>? _subs;
+            private readonly Func<int, bool>? _isCurrentLine;
 
-            public WordAwareColorizer(IList<DiffPiece> lines, IntraLineMode mode, List<IList<DiffPiece>>? subs)
+            public WordAwareColorizer(IList<DiffPiece> lines, IntraLineMode mode, List<IList<DiffPiece>>? subs, Func<int, bool>? isCurrentLine)
             {
                 _lines = lines;
                 _mode = mode;
                 _subs = subs;
+                _isCurrentLine = isCurrentLine;
             }
 
             private static Brush Freeze(Brush b)
@@ -811,6 +713,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 
                 var dp = _lines[index];
 
+                bool isCurrent = _isCurrentLine?.Invoke(line.LineNumber) ?? false;
+
                 // 라인 배경
                 Brush? lineBg = dp.Type switch
                 {
@@ -819,7 +723,10 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                     ChangeType.Modified => ModLine,
                     _ => null
                 };
-                if (lineBg != null)
+
+                // 현재행이 아니면 기존처럼 라인 배경 칠함
+                //   현재행이면 Strong 배경(다른 Colorizer)이 깔려 있으니 여기선 건드리지 않음
+                if (!isCurrent && lineBg != null)
                 {
                     ChangeLinePart(line.Offset, line.EndOffset, el =>
                     {
@@ -876,14 +783,10 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             }
         }
 
-        #endregion
-
-        #region Anchors + Navigation
-
+        // ------------ 앵커 / 네비게이션 ------------
         private static bool IsChanged(ChangeType t)
             => t == ChangeType.Inserted || t == ChangeType.Deleted || t == ChangeType.Modified;
 
-        // 변경 블록의 첫 줄을 앵커로 수집
         private void RebuildChangeAnchors(IList<DiffPiece> leftLines, IList<DiffPiece> rightLines)
         {
             _changeAnchors.Clear();
@@ -910,7 +813,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             }
         }
 
-        // 다음/이전 변경 블록으로 이동
         private void GoToChange(int direction)
         {
             if (_changeAnchors.Count == 0) return;
@@ -922,9 +824,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
 
             try
             {
-                // 점프하는 동안에는 스크롤 동기화 막기
                 _syncing = true;
-
                 ScrollToLine(LeftEditor, l);
                 ScrollToLine(RightEditor, r);
             }
@@ -939,7 +839,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             RightEditor.TextArea.TextView.Redraw();
         }
 
-        // 특정 라인으로 스크롤
         private static void ScrollToLine(TextEditor ed, int line)
         {
             if (ed.Document == null || ed.Document.LineCount == 0) return;
@@ -952,11 +851,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             ed.TextArea.Caret.BringCaretToView();
         }
 
-        #endregion
+        // ------------ 상태 / 유틸 ------------
 
-        #region Status + Utils
-
-        // [CHANGED] DiffPaneModel → IList<DiffPiece>
         private void UpdateStatus(IList<DiffPiece> leftLines, IList<DiffPiece> rightLines)
         {
             int added = CountType(rightLines, ChangeType.Inserted);
@@ -980,42 +876,53 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             StatusText = $"추가 {added} / 삭제 {deleted} / 수정 {modified}";
         }
 
-        // Diff 라인 → 표시 문자열
         private static string BuildAligned(IList<DiffPiece> lines, int reserve)
         {
             var sb = new StringBuilder(reserve + 64);
+
             for (int i = 0; i < lines.Count; i++)
             {
-                var t = lines[i]?.Text ?? "";
-                if (t.Length > 0 && t[^1] == '\r') t = t[..^1];
+                var t = lines[i]?.Text;
+
+                // 빈줄이면 " " 으로 채워서 DocumentLine 붕괴 막기
+                if (string.IsNullOrEmpty(t))
+                    t = " ";
+
                 sb.Append(t);
-                if (i < lines.Count - 1) sb.Append('\n');
+
+                if (i < lines.Count - 1)
+                    sb.Append('\n');
             }
+
             return sb.ToString();
         }
 
-        // Imaginary 제외 원본 라인번호
+        // 원본 행 번호 기준 + Imaginary 는 빈칸
         private static IList<int?> BuildOriginalLineNumbers(IList<DiffPiece> lines)
         {
             var list = new List<int?>(lines.Count);
-            int current = 0;
+            int current = 0;   // 실제 행만 번호 증가
+
             for (int i = 0; i < lines.Count; i++)
             {
                 var p = lines[i];
+
                 if (p.Type == ChangeType.Imaginary)
                 {
+                    // 한쪽에만 존재하는 줄 → 번호 없이 빈 칸
                     list.Add(null);
                 }
                 else
                 {
+                    // 실제 행일 때만 1,2,3,... 증가
                     current++;
                     list.Add(current);
                 }
             }
+
             return list;
         }
 
-        // 라인번호 자리수
         private static int DigitCountFromMax(IList<int?> nums)
         {
             int max = 0;
@@ -1029,7 +936,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return Math.Max(2, d);
         }
 
-        // [CHANGED] CountType 오버로드
         private static int CountType(IList<DiffPiece> lines, ChangeType type)
         {
             int n = 0;
@@ -1044,234 +950,160 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return s.EndsWith("\r") ? s[..^1] : s;
         }
 
-        // ── 키 기준으로 Modified 라인 재분류 ──────────────────────
-        private void NormalizeChangeTypesByKey(DiffPaneModel leftPane, DiffPaneModel rightPane)
-        {
-            if (!_keyContextInitialized || _keyColumnIndexSet == null || _headerIndexMap == null)
-                return;
-
-            int n = Math.Max(leftPane.Lines.Count, rightPane.Lines.Count);
-
-            for (int i = 0; i < n; i++)
-            {
-                DiffPiece? lp = (i < leftPane.Lines.Count) ? leftPane.Lines[i] : null;
-                DiffPiece? rp = (i < rightPane.Lines.Count) ? rightPane.Lines[i] : null;
-
-                if (lp == null && rp == null) continue;
-
-                var lt = lp?.Type ?? ChangeType.Imaginary;
-                var rt = rp?.Type ?? ChangeType.Imaginary;
-
-                bool typeModified = (lt == ChangeType.Modified) || (rt == ChangeType.Modified);
-                if (!typeModified) continue;
-
-                // 키 기준으로 "진짜 수정"인지 판단
-                if (IsModifiedLine(lp, rp))
-                {
-                    // 키/비키 기준으로 수정이 맞으면 Modified 유지
-                    continue;
-                }
-
-                // 여기까지 왔다는 건: DiffPlex는 Modified라고 했지만
-                // 키가 다르거나 비키도 변경이 없어서 "수정"으로 보지 않는 경우
-                // => 이 라인을 삭제/추가로 재해석한다.
-
-                if (lp != null)
-                    lp.Type = ChangeType.Deleted;
-
-                if (rp != null)
-                    rp.Type = ChangeType.Inserted;
-            }
-        }
-
-        // ── 키 컨텍스트 초기화 ───────────────────────────────
-        private void InitKeyContext(string fullText)
-        {
-            _keyContextInitialized = false;
-            _keyColumns = null;
-            _headerIndexMap = null;
-            _keyColumnIndexes = null;
-            _keyColumnIndexSet = null;
-
-            string? fileName = _fileNameForKeyLookup;
-            if (string.IsNullOrEmpty(fileName))
-                return; // 파일명을 알 수 없으면 키정보도 못씀 → 타입기반으로만 동작
-
-            var (delimiter, keys) = FileKeyManager.GetFileSettingsOrDefault(fileName, "|");
-            _currentDelimiter = string.IsNullOrEmpty(delimiter) ? "|" : delimiter;
-
-            if (keys == null || keys.Count == 0)
-                return;
-
-            _keyColumns = keys;
-
-            if (string.IsNullOrEmpty(fullText))
-                return;
-
-            // 첫 줄을 헤더로 가정
-            string headerLine;
-            int idx = fullText.IndexOfAny(new[] { '\r', '\n' });
-            if (idx >= 0)
-                headerLine = fullText.Substring(0, idx);
-            else
-                headerLine = fullText;
-
-            if (string.IsNullOrEmpty(headerLine))
-                return;
-
-            var headers = SplitSafe(headerLine, _currentDelimiter);
-            _headerIndexMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < headers.Length; i++)
-            {
-                var name = headers[i]?.Trim() ?? $"col{i}";
-                if (!_headerIndexMap.ContainsKey(name))
-                    _headerIndexMap[name] = i;
-            }
-
-            // 키 컬럼 인덱스 계산
-            var idxList = new List<int>();
-            foreach (var col in _keyColumns)
-            {
-                if (_headerIndexMap.TryGetValue(col, out int colIdx))
-                    idxList.Add(colIdx);
-            }
-
-            if (idxList.Count == 0)
-            {
-                _keyColumns = null;
-                _headerIndexMap = null;
-                return;
-            }
-
-            _keyColumnIndexes = idxList.ToArray();
-            _keyColumnIndexSet = new HashSet<int>(_keyColumnIndexes);
-            _keyContextInitialized = true;
-        }
-
-        private static string[] SplitSafe(string line, string delimiter)
-        {
-            if (line == null)
-                return Array.Empty<string>();
-
-            if (string.IsNullOrEmpty(delimiter))
-                return line.Split('|');
-
-            return line.Split(new[] { delimiter }, StringSplitOptions.None);
-        }
-
-        private bool IsHeaderLine(string lineText)
-        {
-            if (_headerIndexMap == null) return false;
-
-            var cols = SplitSafe(lineText, _currentDelimiter);
-            if (cols.Length == 0) return false;
-
-            int headerLikeCount = 0;
-            foreach (var c in cols)
-            {
-                var name = (c ?? string.Empty).Trim();
-                if (name.Length == 0) continue;
-                if (_headerIndexMap.ContainsKey(name))
-                    headerLikeCount++;
-            }
-
-            return headerLikeCount >= Math.Max(1, cols.Length / 2);
-        }
-
-        // [NEW] 비키 컬럼 차이만 판단하는 헬퍼
-        private bool HasNonKeyDiff(string leftText, string rightText)
-        {
-            if (_keyColumnIndexSet == null)
-                return !string.Equals(leftText, rightText, StringComparison.Ordinal);
-
-            var leftCols = SplitSafe(leftText, _currentDelimiter);
-            var rightCols = SplitSafe(rightText, _currentDelimiter);
-            int maxLen = Math.Max(leftCols.Length, rightCols.Length);
-
-            for (int colIndex = 0; colIndex < maxLen; colIndex++)
-            {
-                if (_keyColumnIndexSet.Contains(colIndex))
-                    continue; // 키 컬럼은 제외
-
-                string lv = colIndex < leftCols.Length ? (leftCols[colIndex] ?? "").Trim() : string.Empty;
-                string rv = colIndex < rightCols.Length ? (rightCols[colIndex] ?? "").Trim() : string.Empty;
-
-                if (!string.Equals(lv, rv, StringComparison.Ordinal))
-                    return true;
-            }
-
-            return false;
-        }
-
-        // ── 키 기준 수정 여부 판단 ──────────────────────────
         private bool IsModifiedLine(DiffPiece? left, DiffPiece? right)
         {
             var lt = left?.Type ?? ChangeType.Unchanged;
             var rt = right?.Type ?? ChangeType.Unchanged;
-
-            bool typeModified = (lt == ChangeType.Modified) || (rt == ChangeType.Modified);
-
-            // 타입 기준으로도 수정이 아니면 바로 false
-            if (!typeModified)
-                return false;
-
-            // fileKeyConfig에 정보가 없으면 기존 타입 기준으로만 처리
-            if (!_keyContextInitialized || _keyColumnIndexSet == null || _headerIndexMap == null)
-                return typeModified;
-
-            string leftText = left?.Text ?? string.Empty;
-            string rightText = right?.Text ?? string.Empty;
-
-            // 헤더 라인은 키 기반 비교 의미가 적으니, 타입 기준만 따른다
-            if (IsHeaderLine(leftText))
-                return typeModified;
-
-            var leftCols = SplitSafe(leftText, _currentDelimiter);
-            var rightCols = SplitSafe(rightText, _currentDelimiter);
-            int maxLen = Math.Max(leftCols.Length, rightCols.Length);
-
-            // 1) 키 컬럼만 먼저 비교: 하나라도 다르면 "수정"으로 안 본다
-            foreach (var keyIdx in _keyColumnIndexSet)
-            {
-                string lv = keyIdx < leftCols.Length ? leftCols[keyIdx].Trim() : string.Empty;
-                string rv = keyIdx < rightCols.Length ? rightCols[keyIdx].Trim() : string.Empty;
-
-                if (!string.Equals(lv, rv, StringComparison.Ordinal))
-                {
-                    // 키 컬럼이 다르면 이 라인은 "다른 행"으로 간주 → 수정 아님(삭제/추가로 처리)
-                    return false;
-                }
-            }
-
-            // 2) 비키 컬럼에서 실제 값 차이가 있는지 확인
-            bool nonKeyDiff = HasNonKeyDiff(leftText, rightText);
-
-            // 키는 같고, 비키 컬럼에라도 차이가 있어야 "수정"
-            return nonKeyDiff;
+            return lt == ChangeType.Modified || rt == ChangeType.Modified;
         }
 
-        // [NEW] 한 줄에서 키 문자열 뽑기 (키 인덱스 기반)
-        private string GetKeyFromLine(string line)
+        // ------------ KeyDiffContext (키 관련 로직 캡슐화) ------------
+
+        private sealed class KeyDiffContext
         {
-            if (!_keyContextInitialized || _keyColumnIndexes == null)
-                return string.Empty;
+            public string Delimiter { get; }
+            public int[] KeyIndexes { get; }
+            public HashSet<int> KeyIndexSet { get; }
+            public Dictionary<string, int> HeaderIndexMap { get; }
 
-            var cols = SplitSafe(line, _currentDelimiter);
-            if (cols.Length == 0)
-                return string.Empty;
-
-            var parts = new string[_keyColumnIndexes.Length];
-
-            for (int i = 0; i < _keyColumnIndexes.Length; i++)
+            private KeyDiffContext(
+                string delimiter,
+                int[] keyIndexes,
+                HashSet<int> keyIndexSet,
+                Dictionary<string, int> headerIndexMap)
             {
-                int idx = _keyColumnIndexes[i];
-                string v = (idx >= 0 && idx < cols.Length) ? (cols[idx] ?? "").Trim() : string.Empty;
-                parts[i] = v;
+                Delimiter = delimiter;
+                KeyIndexes = keyIndexes;
+                KeyIndexSet = keyIndexSet;
+                HeaderIndexMap = headerIndexMap;
             }
 
-            return string.Join("\u001F", parts); // FileKeyManager와 동일 구분자
-        }
+            public static KeyDiffContext? TryCreate(string? fileName, string fullText)
+            {
+                if (string.IsNullOrEmpty(fileName) || string.IsNullOrEmpty(fullText))
+                    return null;
 
-        #endregion
+                var (delimiter, keys) = FileKeyManager.GetFileSettingsOrDefault(fileName, "|");
+                var delim = string.IsNullOrEmpty(delimiter) ? "|" : delimiter;
+                if (keys == null || keys.Count == 0) return null;
+
+                // 헤더 한 줄 추출
+                string headerLine;
+                int idx = fullText.IndexOfAny(new[] { '\r', '\n' });
+                headerLine = idx >= 0 ? fullText.Substring(0, idx) : fullText;
+                if (string.IsNullOrEmpty(headerLine)) return null;
+
+                var headers = SplitSafe(headerLine, delim);
+
+                var headerMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    var name = headers[i]?.Trim() ?? $"col{i}";
+                    if (!headerMap.ContainsKey(name))
+                        headerMap[name] = i;
+                }
+
+                var idxList = new List<int>();
+                foreach (var col in keys)
+                {
+                    if (headerMap.TryGetValue(col, out int colIdx))
+                        idxList.Add(colIdx);
+                }
+
+                if (idxList.Count == 0) return null;
+
+                var idxArray = idxList.ToArray();
+                var idxSet = new HashSet<int>(idxArray);
+
+                return new KeyDiffContext(delim, idxArray, idxSet, headerMap);
+            }
+
+            // ----- 헬퍼 메서드들 -----
+
+            public List<(string Key, string LineText)> BuildKeyedLines(string[] lines, int startIndex)
+            {
+                var list = new List<(string, string)>();
+
+                for (int i = startIndex; i < lines.Length; i++)
+                {
+                    var line = lines[i];
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+                    if (IsHeaderLine(line)) continue;
+
+                    string key = GetKeyFromLine(line);
+                    if (string.IsNullOrEmpty(key)) continue;
+
+                    list.Add((key, line));
+                }
+
+                return list;
+            }
+
+            public bool HasNonKeyDiff(string leftText, string rightText)
+            {
+                var leftCols = SplitSafe(leftText, Delimiter);
+                var rightCols = SplitSafe(rightText, Delimiter);
+                int maxLen = Math.Max(leftCols.Length, rightCols.Length);
+
+                for (int colIndex = 0; colIndex < maxLen; colIndex++)
+                {
+                    if (KeyIndexSet.Contains(colIndex))
+                        continue;
+
+                    string lv = colIndex < leftCols.Length ? (leftCols[colIndex] ?? "").Trim() : string.Empty;
+                    string rv = colIndex < rightCols.Length ? (rightCols[colIndex] ?? "").Trim() : string.Empty;
+
+                    if (!string.Equals(lv, rv, StringComparison.Ordinal))
+                        return true;
+                }
+
+                return false;
+            }
+
+            private bool IsHeaderLine(string lineText)
+            {
+                var cols = SplitSafe(lineText, Delimiter);
+                if (cols.Length == 0) return false;
+
+                int headerLikeCount = 0;
+                foreach (var c in cols)
+                {
+                    var name = (c ?? string.Empty).Trim();
+                    if (name.Length == 0) continue;
+                    if (HeaderIndexMap.ContainsKey(name))
+                        headerLikeCount++;
+                }
+
+                return headerLikeCount >= Math.Max(1, cols.Length / 2);
+            }
+
+            private string GetKeyFromLine(string line)
+            {
+                var cols = SplitSafe(line, Delimiter);
+                if (cols.Length == 0) return string.Empty;
+
+                var parts = new string[KeyIndexes.Length];
+
+                for (int i = 0; i < KeyIndexes.Length; i++)
+                {
+                    int idx = KeyIndexes[i];
+                    string v = (idx >= 0 && idx < cols.Length) ? (cols[idx] ?? "").Trim() : string.Empty;
+                    parts[i] = v;
+                }
+
+                return string.Join("\u001F", parts);
+            }
+
+            private static string[] SplitSafe(string line, string delimiter)
+            {
+                if (line == null)
+                    return Array.Empty<string>();
+
+                if (string.IsNullOrEmpty(delimiter))
+                    return line.Split('|');
+
+                return line.Split(new[] { delimiter }, StringSplitOptions.None);
+            }
+        }
     }
 }

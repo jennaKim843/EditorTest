@@ -85,7 +85,7 @@
                 <ae:TextEditor x:Name="LeftEditor"
                                FontFamily="Consolas"
                                FontSize="13"
-                               ShowLineNumbers="True"
+                               ShowLineNumbers="False"
                                IsReadOnly="True"
                                HorizontalScrollBarVisibility="Auto"
                                VerticalScrollBarVisibility="Auto"/>
@@ -98,7 +98,7 @@
                 <ae:TextEditor x:Name="RightEditor"
                                FontFamily="Consolas"
                                FontSize="13"
-                               ShowLineNumbers="True"
+                               ShowLineNumbers="False"
                                IsReadOnly="True"
                                HorizontalScrollBarVisibility="Auto"
                                VerticalScrollBarVisibility="Auto" />
