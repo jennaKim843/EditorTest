@@ -189,7 +189,6 @@ namespace InnoPVManagementSystem.Common.Services
             }
         }
 
-
         /// <summary>
         /// (내장) 메모리 가드. 현재 관리 힙 사용량이 임계치를 넘으면 강제 GC(2-pass) 수행.
         /// </summary>
@@ -420,6 +419,55 @@ namespace InnoPVManagementSystem.Common.Services
                         RightRow = r.Row
                     });
                 }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// full key 문자열 집합을 dupKeyColumns 기준의 축약 키 집합으로 변환한다.
+        /// - fullKeys     : keyColumns 순서로 UnitSeparator로 조인된 키 문자열들
+        /// - keyColumns   : fileKeyConfig.json 의 keyColumns
+        /// - dupKeyColumns: fileKeyConfig.json 의 dupKeyColumns (없으면 keyColumns 와 동일하게 설정)
+        /// 
+        /// 반환:
+        /// - dupKeyColumns 순서대로 UnitSeparator 로 join 된 키 문자열들의 집합
+        ///   (예: base_prd_code + rider_prd_code 기준 "상품 키")
+        /// </summary>
+        public static IReadOnlyCollection<string> ProjectKeysToDupKeys(
+            IEnumerable<string> fullKeys,
+            IReadOnlyList<string> keyColumns,
+            IReadOnlyList<string> dupKeyColumns)
+        {
+            var result = new HashSet<string>();
+            if (fullKeys == null)
+                return result;
+
+            // keyColumns 컬럼명 → index 매핑
+            var colIndexMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < keyColumns.Count; i++)
+                colIndexMap[keyColumns[i]] = i;
+
+            // dupKeyColumns 를 keyColumns 상의 index 로 변환
+            var dupIndexes = dupKeyColumns
+                .Select(col => colIndexMap.TryGetValue(col, out var idx) ? idx : -1)
+                .ToArray();
+
+            foreach (var key in fullKeys)
+            {
+                var parts = (key ?? string.Empty).Split(FileKeyManager.UnitSeparator);
+
+                var projected = new string[dupIndexes.Length];
+                for (int i = 0; i < dupIndexes.Length; i++)
+                {
+                    int idx = dupIndexes[i];
+                    projected[i] = (idx >= 0 && idx < parts.Length)
+                        ? parts[idx]
+                        : string.Empty;
+                }
+
+                var dupKey = string.Join(FileKeyManager.UnitSeparator, projected);
+                result.Add(dupKey);
             }
 
             return result;
