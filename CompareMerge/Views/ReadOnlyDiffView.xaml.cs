@@ -6,6 +6,7 @@ using ICSharpCode.AvalonEdit;
 using ICSharpCode.AvalonEdit.Document;
 using ICSharpCode.AvalonEdit.Editing;
 using ICSharpCode.AvalonEdit.Rendering;
+using ICSharpCode.AvalonEdit.Search;
 using InnoPVManagementSystem.Common.Services;
 using System.IO;
 using System.Text;
@@ -71,6 +72,10 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             _rightChangeMarker = new CurrentChangeColorizer();
             LeftEditor.TextArea.TextView.LineTransformers.Add(_leftChangeMarker);
             RightEditor.TextArea.TextView.LineTransformers.Add(_rightChangeMarker);
+
+            // Ctrl+F 기능 추가
+            SearchPanel.Install(LeftEditor.TextArea);
+            SearchPanel.Install(RightEditor.TextArea);
         }
 
         // ------------ 공용 설정 ------------
@@ -1091,7 +1096,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                     parts[i] = v;
                 }
 
-                return string.Join("\u001F", parts);
+                return string.Join(FileKeyManager.UnitSeparator, parts);
             }
 
             private static string[] SplitSafe(string line, string delimiter)

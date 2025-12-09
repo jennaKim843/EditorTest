@@ -14,53 +14,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
         // 테이블 모드 토글 (원하면 외부에서 주입/바인딩 가능)
         private readonly bool UseTableMode = true;
 
-        //public ReadOnlyDiffWindow(string leftPath, string rightPath)
-        //{
-        //    InitializeComponent();
-
-        //    DiffView.SetFileNameForKeyLookup(leftPath);
-
-        //    // 고정폭 폰트(테이블 정렬 안정성)
-        //    DiffView.LeftEditor.FontFamily = new FontFamily("Consolas");
-        //    DiffView.RightEditor.FontFamily = new FontFamily("Consolas");
-
-        //    if (UseTableMode && IsTabular(leftPath) && IsTabular(rightPath))
-        //    {
-        //        // 좌/우 둘 다 표 데이터면 -> 같은 폭으로 렌더 (노이즈 최소화)
-        //        var leftData = LoadTabularData(leftPath);
-        //        var rightData = LoadTabularData(rightPath);
-
-        //        var (lText, rText) = CsvTableFormatter.ToTableTextPair(leftData, rightData);
-        //        DiffView.LeftEditor.Text = lText;
-        //        DiffView.RightEditor.Text = rText;
-        //    }
-        //    else
-        //    {
-        //        // 한쪽만 표이거나, 둘 다 일반 텍스트인 경우
-        //        if (UseTableMode && IsTabular(leftPath))
-        //        {
-        //            var leftData = LoadTabularData(leftPath);
-        //            DiffView.LeftEditor.Text = CsvTableFormatter.ToTableText(leftData);
-        //        }
-        //        else
-        //        {
-        //            DiffView.LeftEditor.Text = LoadRawText(leftPath);
-        //        }
-
-        //        if (UseTableMode && IsTabular(rightPath))
-        //        {
-        //            var rightData = LoadTabularData(rightPath);
-        //            DiffView.RightEditor.Text = CsvTableFormatter.ToTableText(rightData);
-        //        }
-        //        else
-        //        {
-        //            DiffView.RightEditor.Text = LoadRawText(rightPath);
-        //        }
-        //    }
-
-        //    DiffView.CompareNow();
-        //    Title = $"파일 비교 (읽기 전용)  —  L: {System.IO.Path.GetFileName(leftPath)}  |  R: {System.IO.Path.GetFileName(rightPath)}";
-        //}
         public ReadOnlyDiffWindow(string leftPath, string rightPath)
         {
             InitializeComponent();
@@ -161,7 +114,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return File.ReadAllText(path, Encoding.UTF8);
         }
 
-        private static List<List<string>> SortRowsByKeys(　List<List<string>> rows,　IReadOnlyList<string> keyColumns)
+        private static List<List<string>> SortRowsByKeys( List<List<string>> rows, IReadOnlyList<string> keyColumns)
         {
             if (rows == null || rows.Count <= 1)
                 return rows;
@@ -186,15 +139,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
             return result;
         }
 
-        // 날짜로 취급할 키 컬럼 이름
-        private static readonly HashSet<string> DateKeyNames =
-            new(StringComparer.OrdinalIgnoreCase)
-            {
-                "valid_date",
-                "expiration_date"
-                // 추가
-            };
-
         private static int CompareRowKeys( List<string> x, List<string> y, IReadOnlyList<string> keyColumns, Dictionary<string, int> headerMap)
         {
             for (int i = 0; i < keyColumns.Count; i++)
@@ -205,21 +149,19 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                 if (!headerMap.TryGetValue(col, out int idx))
                     continue;
 
-                string xv = idx < x.Count ? x[idx].Trim() : "";
-                string yv = idx < y.Count ? y[idx].Trim() : "";
+                string xv = idx < x.Count ? x[idx]?.Trim() ?? string.Empty : string.Empty;
+                string yv = idx < y.Count ? y[idx]?.Trim() ?? string.Empty : string.Empty;
 
                 int result;
 
-                // 날짜 컬럼 비교
-                if (DateKeyNames.Contains(col))
-                {
-                    DateTime? dx = DateUtil.ParseAnyYmdOrNull(xv);
-                    DateTime? dy = DateUtil.ParseAnyYmdOrNull(yv);
+                // 값이 날짜처럼 해석되면 날짜 비교, 아니면 문자열 비교
+                DateTime? dx = DateUtil.ParseAnyYmdOrNull(xv);
+                DateTime? dy = DateUtil.ParseAnyYmdOrNull(yv);
 
-                    if (dx is null && dy is null)
-                        result = string.CompareOrdinal(xv, yv);
-                    else
-                        result = Nullable.Compare(dx, dy);
+                if (dx is not null || dy is not null)
+                {
+                    // 둘 중 하나라도 날짜로 해석되면 날짜 기준 비교
+                    result = Nullable.Compare(dx, dy);
                 }
                 else
                 {
@@ -231,8 +173,11 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.Views
                     return result;
             }
 
-            // 모든 키값이 동일
-            return 0;
+            // Composite Key가 완전히 동일하면 → 행 전체 문자열로 정렬
+            string fullLineX = string.Join("|", x ?? new List<string>());
+            string fullLineY = string.Join("|", y ?? new List<string>());
+
+            return string.CompareOrdinal(fullLineX, fullLineY);
         }
 
 

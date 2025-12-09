@@ -19,10 +19,7 @@ using static InnoPVManagementSystem.Common.Constants.CodeConstants;
 namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
 {
     /// <summary>
-    /// [ViewModel] 보너스관리 ViewModel
-    /// - CSV/IO 파일(LoyaltyMainBonusSet)을 로드하여 DataView로 그리드에 바인딩
-    /// - 검색 조건 및 상태 코드 필터링 지원
-    /// - MVVM 패턴 기반: ViewModel → View(DataGrid) 바인딩
+    /// [ViewModel] 데이터 비교·머지(DataCompareMerge) 핵심
     /// </summary>
     public class DataCompareMergeViewModel : ViewModelBase
     {
@@ -41,7 +38,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         public class DiffGridItem
         {
             public int No { get; set; }                   // 순번
-            public string FileName { get; set; } = "";    // 상대경로 or 파일명
+            public string FileName { get; set; } = string.Empty;    // 상대경로 or 파일명
             public int AddedCount { get; set; }           // 폴더2에만 존재(추가)
             public int DeletedCount { get; set; }         // 폴더1에만 존재(삭제)
             public int ModifiedCount { get; set; }        // 동일 Key 있으나 내용 달라서 변경으로 간주(아래 로직)
@@ -50,7 +47,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             public string? File1Path { get; set; }   // 기준(폴더1) 파일 풀경로
             public string? File2Path { get; set; }   // 비교(폴더2) 파일 풀경로
 
-            public string Message { get; set; } = "";    // 메세지
+            public string Message { get; set; } = string.Empty;    // 메세지
 
             // fileKeyConfig.json / prodFilePath.json 상에 키 설정이 없어 비교를 수행하지 못한 파일인지 여부
             public bool IsConfigMissing { get; set; }
@@ -124,7 +121,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             set { _progressValue = value; OnPropertyChanged(); }
         }
 
-        private string _progressMessage = "";
+        private string _progressMessage = string.Empty;
         public string ProgressMessage
         {
             get => _progressMessage;
@@ -173,9 +170,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         }
 
         // 바인딩용 프로퍼티
-        public string ResultsText { get; set; } = "";
+        public string ResultsText { get; set; } = string.Empty;
         public bool IsComparing { get; set; }
-        public string LiteralText { get; set; } = "";
+        public string LiteralText { get; set; } = string.Empty;
 
         // =========================================================
         // [검색조건 프로퍼티] - 사용자 입력값을 바인딩받는 프로퍼티들
@@ -210,12 +207,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         // =========================================================
         // [기준폴더]
         // =========================================================
-        ///// <summary>
-        ///// 사용자 폴더리스트
-        ///// </summary>
-        //private ObservableCollection<FolderItem> _folderList = new();
-        //public ObservableCollection<FolderItem> FolderList { get; } = new();
-
         private string _selectedStandardFolder = Status.All; // TODO 수정
         /// <summary>
         /// 현재 선택된 기준폴더
@@ -384,29 +375,20 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         }
 
         /// <summary>
-        /// 기준 폴더(SelectedStandardFolder)와 비교 폴더(SelectedTargetFolder)에 존재하는 파일들을
-        /// fileKeyConfig.json에 정의된 키 컬럼을 기준으로 행 단위 비교한 뒤,
-        /// 그 결과를 DiffGridItem 리스트로 구성하여 그리드(UI)에 표시한다.
+        /// 기준 폴더와 비교 폴더의 CSV/IO 파일을 파일명 기준으로 매칭하여,
+        /// fileKeyConfig.json 설정(키컬럼/dupKeyColumns/날짜 컬럼)에 따라
+        /// 행 단위 차이를 분석하여 그리드에 표시한다.
         ///
         /// 주요 기능:
-        /// 1. 기준/비교 폴더 안에서 CSV/IO 파일 목록을 스캔하고 동일 파일명을 매칭한다.
-        /// 2. 파일별로 fileKeyConfig.json의 키 컬럼 정보를 조회하여 키 기반의 정밀 비교를 수행한다.
-        /// 3. DiffService.CompareByFileKeys()를 이용해 행 단위로 Added / Deleted / Modified 를 계산한다.
-        /// 4. 중복 키가 존재하는 경우:
-        ///    - 비교는 중단되며 행 카운트는 모두 0으로 표시
-        ///    - 그리드에는 “중복코드 존재”로 나타나며
-        ///    - 상세 메시지는 DiffGridItem.DuplicateKeyMessage 에 저장되어 더블클릭 시 팝업으로 확인 가능
-        /// 5. 키 컬럼이 설정되지 않은 파일은 비교 불가 상태(IsComparable = false)로 처리된다.
-        /// 6. 파일 한쪽에만 존재하는 경우(추가/삭제)는 IsComparable = false 로 표시되며 목록 통계에 반영된다.
-        ///
-        /// 예외 처리:
-        /// - 기준 폴더/비교 폴더 미선택, 존재하지 않는 경로 등의 기본 검증은 MessageBox로 안내한다.
-        /// - 비교 중 예외 발생 시 오류 MessageBox를 표시한다.
+        /// - 키 기반 정밀 비교(Added / Deleted / Modified 계산)
+        /// - 중복 키 발생 시 비교 중단 및 메시지 표시
+        /// - 키 정보가 없는 파일은 비교 불가로 처리
+        /// - 한쪽 폴더에만 존재하는 파일은 추가/삭제로 분류
+        /// - 더블클릭 시 상세 Diff 창(ReadOnlyDiffWindow) 제공
         ///
         /// 비고:
-        /// - 라인 비교가 아닌 *“키컬럼 기반 정밀 비교”* 를 수행하므로 동일 파일명이라도
-        ///   키 값이 맞지 않거나 중복될 경우 정상적인 비교가 불가능할 수 있다.
-        /// - 중복키 발생 시 그리드에 표시만 하고 상세 비교(더블클릭) 시에만 팝업.
+        /// - 단순 라인 비교가 아닌 “키 기반 비교” 방식이며,
+        ///   설정 오류 또는 중복 키가 있으면 정상 비교가 제한될 수 있다.
         /// </summary>
         public async Task CompareFile()
         {
@@ -490,8 +472,8 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                     {
                         No = no++,
                         FileName = name,
-                        File1Path = leftPath ?? "",
-                        File2Path = rightPath ?? "",
+                        File1Path = leftPath ?? string.Empty,
+                        File2Path = rightPath ?? string.Empty,
                         AddedCount = 0,
                         DeletedCount = 0,
                         ModifiedCount = 0,
@@ -528,10 +510,12 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                         {
                             item.Message = $"중복된 Key값이 존재함(기준파일:{diff.lDuplicateCount}건, 비교파일:{diff.rDuplicateCount}건)";
                             item.DuplicateKeyMessage = diff.DuplicateKeyMessage;
-                            // 비교는 의미 없으니 카운트는 0으로 두는 쪽이 안전
+
+                            // 비교는 의미 없으니 카운트는 0
                             item.AddedCount = 0;
                             item.DeletedCount = 0;
                             item.ModifiedCount = 0;
+
                             // IsComparable 은 true 로 둬야 더블클릭 가능
                         }
                         else
@@ -623,7 +607,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             {
                 IsBusy = false;
                 IsProgressVisible = false;
-                ProgressMessage = "";
+                ProgressMessage = string.Empty;
             }
         }
 
@@ -647,9 +631,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         /// <summary>
         /// 선택 건 적용
         /// Standard 기준으로
-        ///  - Standard vs 관리자 파일(S vs A)의 변경 키셋
-        ///  - Standard vs 특정 사번 파일(S vs U)의 변경 키셋을 만든 후
-        ///    두 키셋이 겹치면 충돌로 간주하고 머지를 중단.
+        ///  - Standard vs 관리자 파일(S vs A)의 변경 상품 목록
+        ///  - Standard vs 특정 사번 파일(S vs U)의 변경 상품 목록
+        ///    두 변경목록이 겹치면 충돌로 간주하고 머지를 중단.
         ///    겹치지 않으면, 특정 사번(U)에서 변경된 행들을
         ///    관리자 파일(A)에 키 기준으로 추가/덮어쓰기 후 정렬하여 저장한다.
         ///
@@ -701,6 +685,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                 var adminFolderPath = Path.Combine(BaseFilePath, Util.GfnGetUserName());
                 Directory.CreateDirectory(adminFolderPath);
 
+                // 충돌 비교 후 머지
                 var (hasChanges, added, deleted, modified)
                     = MergeUserChangesToAdmin(standardFilePath, userFilePath, adminFolderPath);
 
@@ -726,7 +711,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"적용 중 오류: {ex.Message}", "오류",
+                MessageBox.Show($"적용 중 오류\n:{ex.Message}", "오류",
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -749,7 +734,6 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                     MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-
 
             if (string.IsNullOrWhiteSpace(BaseFilePath))
             {
@@ -848,6 +832,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                             $"파일 '{item.FileName}'의 기준/비교 파일이 모두 존재해야 합니다.");
                     }
 
+                    // 충돌 비교 후 머지
                     var (hasChanges, added, deleted, modified)
                         = MergeUserChangesToAdmin(standardFilePath, userFilePath, adminFolderPath);
 
@@ -908,11 +893,10 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         }
 
         /// <summary>
-        /// 단일 파일에 대해
         ///  - Standard vs Admin(S vs A)
-        ///  - Standard vs User (S vs U)
-        /// 를 비교하여,
-        /// 충돌이 없으면 User 쪽 변경분을 Admin 파일에 키 기준으로 머지/저장한다.
+        ///  - Standard vs User(S vs U)
+        /// 비교를 수행한 뒤, 충돌이 없을 경우 User 변경분을 Admin 파일에 머지한다.
+        /// 충돌 여부는 fileKeyConfig.json 의 dupKeyColumns(상품 단위 기준)으로 판단한다.
         /// </summary>
         /// <param name="standardFilePath">기준(Standard) 파일 경로</param>
         /// <param name="userFilePath">사용자(User) 파일 경로</param>
@@ -935,31 +919,39 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                     $"fileKeyConfig.json에 키 컬럼이 정의되지 않은 파일입니다.\n파일명: {fileName}");
             }
 
-            // 1) Standard vs Admin (S vs A) 변경 키셋
-            var diffStdAdmin = DiffService.CompareByFileKeys(standardFilePath, adminFilePath);
-            var adminChangedKeys = BuildChangedKeySet(diffStdAdmin);
+            // 상품 단위 충돌 체크용 dupKeyColumns (없으면 keyColumns 사용)
+            var dupKeyColumns = FileKeyManager.GetDupKeyColumnsOrDefault(fileName);
+            if (dupKeyColumns == null || dupKeyColumns.Count == 0)
+                dupKeyColumns = new List<string>(keyColumns);
 
-            // 2) Standard vs User (S vs U) 변경 키셋
+            // 1) Standard vs Admin (S vs A) 변경 키셋 (full key 기준)
+            var diffStdAdmin = DiffService.CompareByFileKeys(standardFilePath, adminFilePath);
+            var adminChangedKeys = BuildChangedKeySet(diffStdAdmin);   // HashSet<string> (full key)
+
+            // 2) Standard vs User (S vs U) 변경 키셋 (full key 기준)
             var diffStdUser = DiffService.CompareByFileKeys(standardFilePath, userFilePath);
-            var userChangedKeys = BuildChangedKeySet(diffStdUser);
+            var userChangedKeys = BuildChangedKeySet(diffStdUser);     // HashSet<string> (full key)
 
             // 적용할 변경이 없으면 파일 변경 없음으로 처리
             if (userChangedKeys.Count == 0)
                 return (false, diffStdUser.Added, diffStdUser.Deleted, diffStdUser.Modified);
 
-            // 3) 충돌 키셋 = 관리자 변경 키 ∩ 사용자 변경 키
-            var conflictKeys = adminChangedKeys.Intersect(userChangedKeys).ToList();
-            if (conflictKeys.Count > 0) 
+            // 3) 충돌 상품 키셋 = 관리자 변경 상품 키 ∩ 사용자 변경 상품 키 (dupKeyColumns 기준)
+            var adminProductKeys = DiffService.ProjectKeysToDupKeys(adminChangedKeys, keyColumns, dupKeyColumns);
+            var userProductKeys = DiffService.ProjectKeysToDupKeys(userChangedKeys, keyColumns, dupKeyColumns);
+
+            var conflictKeys = adminProductKeys.Intersect(userProductKeys).ToList();
+            if (conflictKeys.Count > 0)
             {
                 var sbConflict = new StringBuilder();
-                sbConflict.AppendLine("관리자 변경 영역과 특정 사번 변경 영역이 겹쳐서 적용할 수 없습니다.");
+                sbConflict.AppendLine("다른 사번이 수정한 동일 특약에 대해 중복 수정은 허용되지 않습니다.(상품단위 충돌)");
                 sbConflict.AppendLine($"파일명: {fileName}");
                 sbConflict.AppendLine();
-                sbConflict.AppendLine($"충돌 Key 개수: {conflictKeys.Count}");
+                sbConflict.AppendLine($"충돌 상품 Key 개수: {conflictKeys.Count}");
                 sbConflict.AppendLine();
 
-                // keyColumns 사용하여 컬럼 구분 출력
-                sbConflict.AppendLine("충돌 Key 상세(최대 10개):");
+                // dupKeyColumns 사용하여 컬럼 구분 출력
+                sbConflict.AppendLine("충돌 상품 Key 상세(최대 10개):");
 
                 bool headerPrinted = false;
 
@@ -967,29 +959,27 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
                 {
                     var parts = key.Split(FileKeyManager.UnitSeparator);
 
-                    // 1) 첫 줄에는 컬럼명만 출력
+                    // 1) 첫 줄에는 dupKeyColumns 컬럼명만 출력
                     if (!headerPrinted)
                     {
-                        var header = string.Join(" / ", keyColumns);
+                        var header = string.Join(" / ", dupKeyColumns);
                         sbConflict.AppendLine(" - " + header);
                         headerPrinted = true;
                     }
 
                     // 2) 이후에는 값만 출력
                     var values = new List<string>();
-                    for (int i = 0; i < keyColumns.Count; i++)
+                    for (int i = 0; i < dupKeyColumns.Count; i++)
                     {
-                        string colVal = (i < parts.Length ? parts[i] : "");
+                        string colVal = (i < parts.Length ? parts[i] : string.Empty);
                         values.Add(colVal);
                     }
 
                     sbConflict.AppendLine(" - " + string.Join(" / ", values));
                 }
 
-
                 if (conflictKeys.Count > 10)
                     sbConflict.AppendLine($"…외 {conflictKeys.Count - 10}건");
-
 
                 throw new InvalidOperationException(sbConflict.ToString());
             }
@@ -1066,52 +1056,48 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             return (true, diffStdUser.Added, diffStdUser.Deleted, diffStdUser.Modified);
         }
 
-        // 날짜로 취급할 키 컬럼 이름
-        private static readonly HashSet<string> DateKeyNames = new(StringComparer.OrdinalIgnoreCase) { "valid_date", "expiration_date" };
-
+        /// <summary>
+        /// 복합 키를 비교하여 정렬 순서를 결정한다.
+        /// - keyColumns 순서대로 값을 비교하며, 날짜 형식은 날짜로 우선 비교한다.
+        /// - 키값이 모두 동일하면 full line 문자열을 2차 비교하여 안정적으로 정렬한다.
+        /// </summary>
         private static int CompareCompositeKey(string keyX, string keyY, IReadOnlyList<string> keyColumns, string fullLineX, string fullLineY)
         {
-            var xParts = (keyX ?? string.Empty).Split('\u001F');
-            var yParts = (keyY ?? string.Empty).Split('\u001F');
+            // keyParts: keyColumns 순서대로 분리된 키 값 배열
+            var xParts = (keyX ?? string.Empty).Split(FileKeyManager.UnitSeparator);
+            var yParts = (keyY ?? string.Empty).Split(FileKeyManager.UnitSeparator);
 
-            int maxIndex = keyColumns.Count;
-
-            for (int i = 0; i < maxIndex; i++)
+            // 1) keyColumns 순서대로 키 비교
+            for (int i = 0; i < keyColumns.Count; i++)
             {
-                string colName = keyColumns[i];
-
-                string xv = i < xParts.Length ? xParts[i]?.Trim() ?? string.Empty : string.Empty;
-                string yv = i < yParts.Length ? yParts[i]?.Trim() ?? string.Empty : string.Empty;
+                string xv = i < xParts.Length ? xParts[i] ?? string.Empty : string.Empty;
+                string yv = i < yParts.Length ? yParts[i] ?? string.Empty : string.Empty;
 
                 int result;
 
-                if (DateKeyNames.Contains(colName))
-                {
-                    DateTime? dx = DateUtil.ParseAnyYmdOrNull(xv);
-                    DateTime? dy = DateUtil.ParseAnyYmdOrNull(yv);
+                // 1-1 날짜 형태일 경우 날짜로 비교
+                var dx = DateUtil.ParseAnyYmdOrNull(xv);
+                var dy = DateUtil.ParseAnyYmdOrNull(yv);
 
-                    // 날짜 파싱이 둘 다 실패했으면 문자열 비교로 fallback
-                    if (dx is null && dy is null)
-                    {
-                        result = string.CompareOrdinal(xv, yv);
-                    }
-                    else
-                    {
-                        result = Nullable.Compare(dx, dy);
-                    }
+                if (dx != null || dy != null)
+                {
+                    // 둘 중 하나라도 날짜로 해석되면 날짜 우선 비교
+                    result = Nullable.Compare(dx, dy);
                 }
                 else
                 {
+                    // 일반 문자열 비교금
                     result = string.CompareOrdinal(xv, yv);
                 }
 
+                // 키 값이 다르면 즉시 반환안되며
                 if (result != 0)
                     return result;
             }
 
-            //return 0;
-            // Composite Key가 완전히 동일하면 → 행 전체 문자열로 정렬
-            return string.CompareOrdinal(fullLineX ?? "", fullLineY ?? "");
+            // 2) 모든 키값이 동일한 경우 >> full line 전체 비교로 2차정렬
+            //     (중복 키 발생 시 정렬 안정성 확보 목적)
+            return string.CompareOrdinal(fullLineX ?? string.Empty, fullLineY ?? string.Empty);
         }
 
         /// <summary>
@@ -1135,7 +1121,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         }
 
         /// <summary>
-        /// IO/CSV 파일을 머지용 테이블(List&lt;List&lt;string&gt;&gt;)로 로드한다.
+        /// IO/CSV 파일을 머지용 테이블(List<List<string>>)로 로드한다.
         /// - .io : IIO.IOtoCsv(path).csvData 사용
         /// - .csv: ParserUtil.ParsePipeDelimitedCsv 사용
         /// </summary>
@@ -1154,7 +1140,7 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
         }
 
         /// <summary>
-        ///  List<List<string>> 형태의 CSV 데이터를
+        /// List<List<string>> 형태의 CSV 데이터를
         /// 파일 확장자에 따라 CSV(.csv) 또는 IO(.io) 파일로 저장한다.
         /// </summary>
         /// <param name="path">저장할 대상 파일 경로(.csv 또는 .io)</param>
@@ -1176,6 +1162,9 @@ namespace InnoPVManagementSystem.Modules.CompareMerge.ViewModels
             }
         }
 
+        /// <summary>
+        /// 행 더블클릭 이벤트
+        /// </summary>
         public ICommand RowActionCommand => new RelayCommand<DiffGridItem>(
             async row =>
             {
