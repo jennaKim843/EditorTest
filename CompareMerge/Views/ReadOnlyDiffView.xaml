@@ -1,0 +1,156 @@
+﻿<UserControl x:Class="InnoPVManagementSystem.Modules.CompareMerge.Views.ReadOnlyDiffView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="http://icsharpcode.net/sharpdevelop/avalonedit">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 상단: 3열 레이아웃 (좌: 파일/비교, 중: 상태+배지, 우: 변경 내비게이션) -->
+        <Grid Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 좌측: 파일 선택 + 비교 -->
+            <!--<StackPanel Orientation="Horizontal" Grid.Column="0">
+                <Button Content="좌 파일..." Margin="0,0,6,0" Click="OnPickLeft"/>
+                <Button Content="우 파일..." Margin="0,0,12,0" Click="OnPickRight"/>
+                <Button Content="비교" Click="OnCompare" />
+            </StackPanel>-->
+
+            <!-- 가운데: 카운트 배지 + 상태 텍스트 -->
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="12,0"
+                        >
+                <!-- 추가 -->
+                <Border Background="#734CAF50" BorderBrush="#4F6056" BorderThickness="1"
+                        CornerRadius="6" Padding="6,2" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="추가" Foreground="#415147" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                        <TextBlock Text="{Binding AddedRows, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 삭제 -->
+                <Border Background="#FDE7E9" BorderBrush="#F28B94" BorderThickness="1"
+                        CornerRadius="6" Padding="6,2" Margin="0,0,6,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="삭제" Foreground="#C62828" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                        <TextBlock Text="{Binding DeletedRows, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 수정 -->
+                <Border Background="#FFF7DF" BorderBrush="#FFCC66" BorderThickness="1"
+                        CornerRadius="6" Padding="6,2" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="수정" Foreground="#E65100" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                        <TextBlock Text="{Binding ModifiedRows, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                   FontWeight="Bold"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- 상태 텍스트 -->
+                <!--<TextBlock Text="{Binding StatusText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"/>-->
+            </StackPanel>
+
+            <!-- 우측: 변경 내비게이션 -->
+            <StackPanel Orientation="Horizontal" Grid.Column="2" HorizontalAlignment="Right">
+                <Button Content="⏮" Margin="0,0,6,0" Click="OnPrevChange"/>
+                <Button Content="⏭" Click="OnNextChange"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- 본문: 좌/우 읽기 전용 편집기 -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="6"/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+
+            <!-- 좌 -->
+            <Border Margin="8"
+                    BorderBrush="#DDD"
+                    BorderThickness="1"
+                    ClipToBounds="True">
+                <Grid>
+                    <ae:TextEditor x:Name="LeftEditor"
+                                   FontSize="13"
+                                   ShowLineNumbers="False"
+                                   IsReadOnly="True"
+                                   HorizontalScrollBarVisibility="Auto"
+                                   VerticalScrollBarVisibility="Auto" />
+
+                    <!-- 고정 헤더 오버레이 -->
+                    <Border x:Name="LeftHeaderOverlay"
+                            Background="#FFF4F4F4"
+                            VerticalAlignment="Top"
+                            Height="24"
+                            Visibility="Collapsed"
+                            IsHitTestVisible="False"
+                            ClipToBounds="True">
+                        <!-- 실제 헤더 텍스트는 Canvas 안에 배치 -->
+                        <Canvas x:Name="LeftHeaderCanvas" ClipToBounds="True">
+                            <TextBlock x:Name="LeftHeaderText"
+                                       Margin="0,2,4,2"
+                                       FontSize="{Binding ElementName=LeftEditor, Path=FontSize}"
+                                       TextTrimming="None" />
+                        </Canvas>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- 경계선 -->
+            <GridSplitter Grid.Column="1"
+                          Width="6"
+                          HorizontalAlignment="Stretch"
+                          Background="#EEE"/>
+
+            <!-- 우 -->
+            <Border Grid.Column="2"
+                    Margin="8"
+                    BorderBrush="#DDD"
+                    BorderThickness="1"
+                    ClipToBounds="True">
+                <Grid>
+                    <ae:TextEditor x:Name="RightEditor"
+                                   FontSize="13"
+                                   ShowLineNumbers="False"
+                                   IsReadOnly="True"
+                                   HorizontalScrollBarVisibility="Auto"
+                                   VerticalScrollBarVisibility="Auto" />
+
+                    <!-- 고정 헤더 오버레이 -->
+                    <Border x:Name="RightHeaderOverlay"
+                            Background="#FFF4F4F4"
+                            VerticalAlignment="Top"
+                            Height="24"
+                            Visibility="Collapsed"
+                            IsHitTestVisible="False"
+                            ClipToBounds="True">
+                        <Canvas x:Name="RightHeaderCanvas" ClipToBounds="True">
+                            <TextBlock x:Name="RightHeaderText"
+                                       Margin="0,2,4,2"
+                                       FontSize="{Binding ElementName=RightEditor, Path=FontSize}"
+                                       TextTrimming="None" />
+                        </Canvas>
+                    </Border>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+    </Grid>
+</UserControl>
