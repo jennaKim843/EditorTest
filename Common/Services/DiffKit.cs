@@ -474,7 +474,7 @@ namespace InnoPVManagementSystem.Common.Services
         }
 
         // 파일을 표 데이터(List<List<string>>)로 로드
-        private static List<List<string>> LoadAsTable(string path)
+        public static List<List<string>> LoadAsTable(string path)
         {
             var ext = Path.GetExtension(path).ToLowerInvariant();
 

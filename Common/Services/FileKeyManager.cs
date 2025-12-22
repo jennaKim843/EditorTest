@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
+﻿using System.IO;
 using System.Text.Json.Serialization;
 using System.Text.Json;
-using System.Threading.Tasks;
-using InnoPVManagementSystem.Common.Foundation;
 using System.Globalization;
+using InnoPVManagementSystem.Common.IO;
+using InnoPVManagementSystem.Common.Utils;
 
 namespace InnoPVManagementSystem.Common.Services
 {
@@ -34,13 +30,8 @@ namespace InnoPVManagementSystem.Common.Services
                 return _configPath!;
 
             var fileName = "fileKeyConfig.json";
-#if DEBUG
-            string fullPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", fileName);
-#else
-            // 전체 경로 생성: User 폴더 + innolinc 설치 경로 + 파일명
-            string fullPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), $"AppData\\Roaming\\InnoLinc\\{fileName}");
-#endif
-            return fullPath;
+            
+            return FileUtil.GetInnoLincResourcePath(fileName);
         }
 
         private static FileKeyConfig LoadInternal()
